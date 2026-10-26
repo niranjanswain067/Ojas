@@ -1,0 +1,11 @@
+runtime/
+models/*.gguf
+data/
+workspace/
+logs/
+reports/
+frontend/node_modules/
+frontend/dist/
+__pycache__/
+*.pyc
+.env
