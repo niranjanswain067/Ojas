@@ -1,13 +1,39 @@
-﻿annotated-types==0.8.0
+# ── Core framework ─────────────────────────────────────────────────────────
+fastapi==0.115.12
+uvicorn[standard]==0.34.3
+python-multipart==0.0.20
+
+# ── Settings / validation ───────────────────────────────────────────────────
+pydantic==2.14.1
+pydantic-settings==2.16.1
+pydantic_core==2.50.1
+python-dotenv==1.2.4
+
+# ── LLM (llama.cpp) ────────────────────────────────────────────────────────
+llama-cpp-python==0.3.36
+
+# ── RAG: embeddings + vector store ─────────────────────────────────────────
+fastembed==0.6.1
+chromadb==1.0.11
+
+# ── Document parsing ────────────────────────────────────────────────────────
+python-docx==1.1.2
+pypdf==5.5.0
+chardet==5.2.0
+
+# ── Static analysis ─────────────────────────────────────────────────────────
+ruff==0.11.13
+
+# ── Testing ─────────────────────────────────────────────────────────────────
+pytest==9.1.1
+httpx==0.28.1
+
+# ── Utilities ───────────────────────────────────────────────────────────────
+annotated-types==0.8.0
 colorama==0.4.6
 iniconfig==2.3.1
 packaging==26.3
 pluggy==1.7.0
-pydantic==2.14.1
-pydantic-settings==2.16.1
-pydantic_core==2.50.1
 Pygments==2.21.0
-pytest==9.1.1
-python-dotenv==1.2.4
-typing-inspection==0.4.4
 typing_extensions==4.16.0
+typing-inspection==0.4.4
