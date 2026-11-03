@@ -26,7 +26,39 @@ Manager   Ingest Index  Search Agent   +SSE      Agent   Loop     +Polish  QA
 
 ---
 
+## 📅 Project Schedule
+
+| Phase | Name | Start | Deadline | Duration | Status |
+|---|---|---|---|---|---|
+| 01 | Folder Structure & Boilerplate | 25 Oct 2026 | 25 Oct 2026 | 1 day | ✅ Done |
+| 02 | Configuration System | 26 Oct 2026 | 26 Oct 2026 | 1 day | ✅ Done |
+| 03 | Database Initialization | 27 Oct 2026 | 27 Oct 2026 | 1 day | ✅ Done |
+| 04 | LLM Client | 28 Oct 2026 | 29 Oct 2026 | 2 days | ✅ Done |
+| 05 | Health Endpoint & FastAPI App | 30 Oct 2026 | 30 Oct 2026 | 1 day | ✅ Done |
+| 06 | Frontend Scaffold | 31 Oct 2026 | 01 Nov 2026 | 2 days | 🔲 Pending |
+| 07 | UI Shell & Navigation | 02 Nov 2026 | 03 Nov 2026 | 2 days | 🔲 Pending |
+| 08 | Project CRUD | 04 Nov 2026 | 05 Nov 2026 | 2 days | 🔲 Pending |
+| 09 | File Management API | 06 Nov 2026 | 06 Nov 2026 | 1 day | 🔲 Pending |
+| 10 | Workspace Layout & Editor | 07 Nov 2026 | 08 Nov 2026 | 2 days | 🔲 Pending |
+| 11 | Settings API & Page | 09 Nov 2026 | 09 Nov 2026 | 1 day | 🔲 Pending |
+| 12 | Task Manager & Event Bus | 10 Nov 2026 | 10 Nov 2026 | 1 day | 🔲 Pending |
+| 13 | Document Upload & Parsing | 11 Nov 2026 | 12 Nov 2026 | 2 days | 🔲 Pending |
+| 14 | Chunking, Embedding & Indexing | 13 Nov 2026 | 14 Nov 2026 | 2 days | 🔲 Pending |
+| 15 | RAG Search Engine | 15 Nov 2026 | 15 Nov 2026 | 1 day | 🔲 Pending |
+| 16 | Development Agent & Code Generation | 16 Nov 2026 | 17 Nov 2026 | 2 days | 🔲 Pending |
+| 17 | Orchestrator, Runs API & Run Panel | 18 Nov 2026 | 19 Nov 2026 | 2 days | 🔲 Pending |
+| 18 | Testing Agent, Bug Reports & Fix Loop | 20 Nov 2026 | 21 Nov 2026 | 2 days | 🔲 Pending |
+| 19 | Traceability, Reports & UI Polish | 22 Nov 2026 | 23 Nov 2026 | 2 days | 🔲 Pending |
+| 20 | Integration Testing & Final QA | 24 Nov 2026 | 25 Nov 2026 | 2 days | 🔲 Pending |
+
+> **Project Start:** 25 Oct 2026 &nbsp;&nbsp;|&nbsp;&nbsp; **Project Deadline:** 25 Nov 2026 &nbsp;&nbsp;|&nbsp;&nbsp; **Total Duration:** 32 days
+
+
+---
+
 ## Phase 1: Folder Structure & Boilerplate
+
+> 📅 **Start:** 25 Oct 2026 &nbsp;|&nbsp; **Deadline:** 25 Oct 2026 &nbsp;|&nbsp; **Duration:** 1 day &nbsp;|&nbsp; **Status:** ✅ Done
 
 **Goal:** The complete project directory tree exists. All `__init__.py` files are in place. `.gitignore` and `README.md` are created.
 
@@ -125,6 +157,8 @@ Write a brief placeholder README with project name, one-line description, and a 
 
 ## Phase 2: Configuration System
 
+> 📅 **Start:** 26 Oct 2026 &nbsp;|&nbsp; **Deadline:** 26 Oct 2026 &nbsp;|&nbsp; **Duration:** 1 day &nbsp;|&nbsp; **Status:** ✅ Done
+
 **Goal:** `config/settings.json` has default values. `config.py` loads settings with Pydantic. `get_settings()` returns a singleton.
 
 ---
@@ -183,6 +217,8 @@ Write a brief placeholder README with project name, one-line description, and a 
 
 ## Phase 3: Database Initialization
 
+> 📅 **Start:** 27 Oct 2026 &nbsp;|&nbsp; **Deadline:** 27 Oct 2026 &nbsp;|&nbsp; **Duration:** 1 day &nbsp;|&nbsp; **Status:** ✅ Done
+
 **Goal:** SQLite database creates all tables on startup. Helper functions work for basic queries.
 
 ---
@@ -234,6 +270,8 @@ Implement every table exactly as specified in `05_Database_Schema.md`. Pay atten
 ---
 
 ## Phase 4: LLM Client
+
+> 📅 **Start:** 28 Oct 2026 &nbsp;|&nbsp; **Deadline:** 29 Oct 2026 &nbsp;|&nbsp; **Duration:** 2 days &nbsp;|&nbsp; **Status:** ✅ Done
 
 **Goal:** Abstract LLM interface defined. llama.cpp implementation loads a model, generates text, and streams tokens.
 
@@ -290,6 +328,8 @@ Implement every table exactly as specified in `05_Database_Schema.md`. Pay atten
 ---
 
 ## Phase 5: Health Endpoint & FastAPI App
+
+> 📅 **Start:** 30 Oct 2026 &nbsp;|&nbsp; **Deadline:** 30 Oct 2026 &nbsp;|&nbsp; **Duration:** 1 day &nbsp;|&nbsp; **Status:** ✅ Done
 
 **Goal:** FastAPI app starts, loads config, initializes DB, loads LLM, and serves the health endpoint.
 
@@ -366,6 +406,8 @@ Implement every table exactly as specified in `05_Database_Schema.md`. Pay atten
 
 ## Phase 6: Frontend Scaffold
 
+> 📅 **Start:** 31 Oct 2026 &nbsp;|&nbsp; **Deadline:** 01 Nov 2026 &nbsp;|&nbsp; **Duration:** 2 days &nbsp;|&nbsp; **Status:** 🔲 Pending
+
 **Goal:** Vite + React + TypeScript app is created. Dependencies installed. Basic configuration done.
 
 ---
@@ -421,6 +463,8 @@ frontend/src/
 ---
 
 ## Phase 7: UI Shell & Navigation
+
+> 📅 **Start:** 02 Nov 2026 &nbsp;|&nbsp; **Deadline:** 03 Nov 2026 &nbsp;|&nbsp; **Duration:** 2 days &nbsp;|&nbsp; **Status:** 🔲 Pending
 
 **Goal:** App shell with navigation bar, 4 route pages (placeholder), model status chip, and theme support.
 
@@ -492,6 +536,8 @@ frontend/src/
 ---
 
 ## Phase 8: Project CRUD (Backend + Frontend)
+
+> 📅 **Start:** 04 Nov 2026 &nbsp;|&nbsp; **Deadline:** 05 Nov 2026 &nbsp;|&nbsp; **Duration:** 2 days &nbsp;|&nbsp; **Status:** 🔲 Pending
 
 **Goal:** User can create, view, and delete projects. Project list displays in the UI.
 
@@ -588,6 +634,8 @@ Register router in `main.py`.
 
 ## Phase 9: File Management API
 
+> 📅 **Start:** 06 Nov 2026 &nbsp;|&nbsp; **Deadline:** 06 Nov 2026 &nbsp;|&nbsp; **Duration:** 1 day &nbsp;|&nbsp; **Status:** 🔲 Pending
+
 **Goal:** Read, write, and delete files within a project workspace. File tree API works. Path traversal attacks are blocked.
 
 ---
@@ -664,6 +712,8 @@ Register router in `main.py`.
 
 ## Phase 10: Workspace Layout & Editor
 
+> 📅 **Start:** 07 Nov 2026 &nbsp;|&nbsp; **Deadline:** 08 Nov 2026 &nbsp;|&nbsp; **Duration:** 2 days &nbsp;|&nbsp; **Status:** 🔲 Pending
+
 **Goal:** Workspace page has the 4-panel layout: sidebar (file tree), editor (Monaco with tabs), run panel, bottom panel. Files open in the editor.
 
 ---
@@ -712,6 +762,8 @@ Register router in `main.py`.
 
 ## Phase 11: Settings API & Page
 
+> 📅 **Start:** 09 Nov 2026 &nbsp;|&nbsp; **Deadline:** 09 Nov 2026 &nbsp;|&nbsp; **Duration:** 1 day &nbsp;|&nbsp; **Status:** 🔲 Pending
+
 **Goal:** Settings page shows and edits configuration. Health card displays model status.
 
 ---
@@ -759,6 +811,8 @@ Register router in `main.py`.
 ---
 
 ## Phase 12: Background Task Manager & Event Bus
+
+> 📅 **Start:** 10 Nov 2026 &nbsp;|&nbsp; **Deadline:** 10 Nov 2026 &nbsp;|&nbsp; **Duration:** 1 day &nbsp;|&nbsp; **Status:** 🔲 Pending
 
 **Goal:** Background tasks run one-at-a-time. SSE event bus streams progress to the frontend.
 
@@ -838,6 +892,8 @@ Register router in `main.py`.
 
 ## Phase 13: Document Upload & Parsing
 
+> 📅 **Start:** 11 Nov 2026 &nbsp;|&nbsp; **Deadline:** 12 Nov 2026 &nbsp;|&nbsp; **Duration:** 2 days &nbsp;|&nbsp; **Status:** 🔲 Pending
+
 **Goal:** User uploads requirement documents. Files are saved, validated, parsed into plain text.
 
 ---
@@ -908,6 +964,8 @@ Register router in `main.py`.
 ---
 
 ## Phase 14: Chunking, Embedding & Indexing
+
+> 📅 **Start:** 13 Nov 2026 &nbsp;|&nbsp; **Deadline:** 14 Nov 2026 &nbsp;|&nbsp; **Duration:** 2 days &nbsp;|&nbsp; **Status:** 🔲 Pending
 
 **Goal:** Documents are chunked into requirements, embedded, and indexed for semantic + keyword search.
 
@@ -1025,6 +1083,8 @@ Register router in `main.py`.
 
 ## Phase 15: RAG Search Engine
 
+> 📅 **Start:** 15 Nov 2026 &nbsp;|&nbsp; **Deadline:** 15 Nov 2026 &nbsp;|&nbsp; **Duration:** 1 day &nbsp;|&nbsp; **Status:** 🔲 Pending
+
 **Goal:** Hybrid search (semantic + keyword + RRF fusion) returns relevant requirement chunks for any query.
 
 ---
@@ -1077,6 +1137,8 @@ Register router in `main.py`.
 ---
 
 ## Phase 16: Development Agent & Code Generation
+
+> 📅 **Start:** 16 Nov 2026 &nbsp;|&nbsp; **Deadline:** 17 Nov 2026 &nbsp;|&nbsp; **Duration:** 2 days &nbsp;|&nbsp; **Status:** 🔲 Pending
 
 **Goal:** User enters a prompt → Development Agent analyzes requirements → generates a plan → user approves → code files are generated with static checks.
 
@@ -1182,6 +1244,8 @@ Register router in `main.py`.
 
 ## Phase 17: Orchestrator, Runs API & Run Panel
 
+> 📅 **Start:** 18 Nov 2026 &nbsp;|&nbsp; **Deadline:** 19 Nov 2026 &nbsp;|&nbsp; **Duration:** 2 days &nbsp;|&nbsp; **Status:** 🔲 Pending
+
 **Goal:** Full plan → develop workflow runs as a background task with SSE progress. User can approve plans and cancel runs.
 
 ---
@@ -1275,6 +1339,8 @@ Register router in `main.py`.
 ---
 
 ## Phase 18: Testing Agent, Bug Reports & Fix Loop
+
+> 📅 **Start:** 20 Nov 2026 &nbsp;|&nbsp; **Deadline:** 21 Nov 2026 &nbsp;|&nbsp; **Duration:** 2 days &nbsp;|&nbsp; **Status:** 🔲 Pending
 
 **Goal:** Tests execute with pytest, failures produce structured bug reports. Automated fix loop runs with 3 stop rules.
 
@@ -1470,6 +1536,8 @@ Register router in `main.py`.
 
 ## Phase 19: Traceability, Reports & UI Polish
 
+> 📅 **Start:** 22 Nov 2026 &nbsp;|&nbsp; **Deadline:** 23 Nov 2026 &nbsp;|&nbsp; **Duration:** 2 days &nbsp;|&nbsp; **Status:** 🔲 Pending
+
 **Goal:** Traceability links work. Reports page complete. Token streaming. Loading states, toasts, and polished UX.
 
 ---
@@ -1604,6 +1672,8 @@ Create `start.bat` per `08_Setup_Guide.md` §7.3:
 ---
 
 ## Phase 20: Integration Testing, Sample Projects & Final QA
+
+> 📅 **Start:** 24 Nov 2026 &nbsp;|&nbsp; **Deadline:** 25 Nov 2026 &nbsp;|&nbsp; **Duration:** 2 days &nbsp;|&nbsp; **Status:** 🔲 Pending
 
 **Goal:** All acceptance criteria pass. Platform is stable and demo-ready.
 
