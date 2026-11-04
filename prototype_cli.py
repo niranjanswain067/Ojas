@@ -9,7 +9,7 @@ Capabilities:
 2. Polyglot Interactive Assistant (Any language/framework).
 3. Autonomous Dev -> Test -> Fix Loop (Python & Node.js).
 4. Universal Code Doctor: Upload/inspect ANY language file, detect bugs,
-   generate native unit tests, and produce corrected code.
+   generate native unit tests, and produce clean corrected code without external dependency errors.
 """
 
 import ast
@@ -32,6 +32,11 @@ try:
         sys.stdout.reconfigure(encoding="utf-8")
 except Exception:
     pass
+
+# Ensure Node.js and standard Windows paths are in PATH
+NODEJS_DIR = r"C:\Program Files\nodejs"
+if os.path.exists(NODEJS_DIR) and NODEJS_DIR not in os.environ.get("PATH", ""):
+    os.environ["PATH"] = f"{NODEJS_DIR};{os.environ.get('PATH', '')}"
 
 from backend.app.llm.llama_cpp_client import LlamaCppClient
 from backend.app.config import get_settings
@@ -62,28 +67,77 @@ def print_banner():
 
 # ── Language Detection & Mapping ──────────────────────────────────────────
 LANGUAGE_MAP = {
-    ".py": {"name": "Python", "framework": "pytest", "runner": "pytest"},
-    ".js": {"name": "JavaScript (Node.js)", "framework": "Node Test / Jest", "runner": "node"},
-    ".ts": {"name": "TypeScript", "framework": "Vitest / Jest", "runner": "node"},
-    ".java": {"name": "Java", "framework": "JUnit 5", "runner": "javac"},
-    ".cpp": {"name": "C++", "framework": "GoogleTest / Catch2", "runner": "g++"},
-    ".cc": {"name": "C++", "framework": "GoogleTest", "runner": "g++"},
-    ".c": {"name": "C", "framework": "Unity / CTest", "runner": "gcc"},
-    ".cs": {"name": "C# (.NET)", "framework": "xUnit / NUnit", "runner": "dotnet"},
-    ".go": {"name": "Go", "framework": "go test", "runner": "go"},
-    ".rs": {"name": "Rust", "framework": "cargo test", "runner": "rustc"},
-    ".php": {"name": "PHP", "framework": "PHPUnit", "runner": "php"},
-    ".html": {"name": "HTML / Web", "framework": "W3C Validator / Playwright", "runner": None},
-    ".sql": {"name": "SQL", "framework": "SQL Linter", "runner": None},
+    ".py": {
+        "name": "Python",
+        "framework": "pytest",
+        "test_instructions": "Use standard pytest or unittest. Import module directly.",
+    },
+    ".js": {
+        "name": "JavaScript (Node.js)",
+        "framework": "node:test (Native)",
+        "test_instructions": "Use Node.js BUILT-IN modules ONLY: const test = require('node:test'); const assert = require('node:assert'); DO NOT require @jest/globals, mocha, or chai.",
+    },
+    ".ts": {
+        "name": "TypeScript",
+        "framework": "Native Node / Vitest",
+        "test_instructions": "Use standard TypeScript testing conventions.",
+    },
+    ".java": {
+        "name": "Java",
+        "framework": "JUnit 5",
+        "test_instructions": "Use standard org.junit.jupiter.api.* annotations (@Test, assertEquals).",
+    },
+    ".cpp": {
+        "name": "C++",
+        "framework": "GoogleTest / Catch2",
+        "test_instructions": "Use standard assertion macros (EXPECT_EQ, ASSERT_TRUE).",
+    },
+    ".cc": {
+        "name": "C++",
+        "framework": "GoogleTest",
+        "test_instructions": "Use standard assertion macros.",
+    },
+    ".c": {
+        "name": "C",
+        "framework": "Unity / assert",
+        "test_instructions": "Use standard assert.h assertions.",
+    },
+    ".cs": {
+        "name": "C# (.NET)",
+        "framework": "xUnit / NUnit",
+        "test_instructions": "Use standard [Fact] or [Test] annotations.",
+    },
+    ".go": {
+        "name": "Go",
+        "framework": "testing package",
+        "test_instructions": "Use standard `func TestXxx(t *testing.T)` from package testing.",
+    },
+    ".rs": {
+        "name": "Rust",
+        "framework": "cargo test",
+        "test_instructions": "Use `#[test]` attribute and `assert_eq!` macros.",
+    },
+    ".php": {
+        "name": "PHP",
+        "framework": "PHPUnit",
+        "test_instructions": "Use PHPUnit\\Framework\\TestCase.",
+    },
 }
 
 
 def detect_language(file_path: Path) -> dict:
     ext = file_path.suffix.lower()
-    return LANGUAGE_MAP.get(ext, {"name": "Generic Code", "framework": "Unit Tests", "runner": None})
+    return LANGUAGE_MAP.get(
+        ext,
+        {
+            "name": "Generic Code",
+            "framework": "Unit Tests",
+            "test_instructions": "Use standard assertions without external dependencies.",
+        },
+    )
 
 
-def extract_code_block(text: str, default_lang: str = "") -> str:
+def extract_code_block(text: str) -> str:
     """Extract code from ```lang ... ``` or return stripped text."""
     pattern = r"```(?:\w+)?\s*([\s\S]*?)```"
     matches = re.findall(pattern, text)
@@ -92,10 +146,19 @@ def extract_code_block(text: str, default_lang: str = "") -> str:
     return text.strip()
 
 
+def validate_python_syntax(code: str) -> tuple[bool, str]:
+    """Check if Python syntax is valid using AST parse."""
+    try:
+        ast.parse(code)
+        return True, "Syntax is valid."
+    except SyntaxError as e:
+        return False, f"SyntaxError at line {e.lineno}: {e.msg}"
+
+
 # ── Built-in Multi-Language Buggy Samples ─────────────────────────────────
 SAMPLES = {
     "1": {
-        "title": "JavaScript (Node.js) - Async & Cart Calculation Bug",
+        "title": "JavaScript (Node.js) - Shopping Cart with Validation & Rounding Bugs",
         "filename": "shoppingCart.js",
         "lang": "javascript",
         "code": """// Shopping Cart with common JS async & floating point bugs
@@ -110,16 +173,16 @@ class ShoppingCart {
     }
 
     getTotalPrice() {
-        // BUG 2: Classical JavaScript floating point precision issue + wrong accumulator
+        // BUG 2: Classical JavaScript floating point precision issue
         let total = 0;
         for (let item of this.items) {
             total += item.price * item.quantity;
         }
-        return total; // e.g. 0.1 + 0.2 returns 0.30000000000000004
+        return total;
     }
 
-    async applyDiscountCode(code) {
-        // BUG 3: Async promise rejected or not handled
+    applyDiscountCode(code) {
+        // BUG 3: Unhandled promo code validation
         if (code === "SAVE10") {
             return 0.10;
         } else if (code === "SAVE50") {
@@ -289,46 +352,127 @@ def run_interactive(client: LlamaCppClient):
             break
 
 
-# ── Mode 3: Autonomous Dev -> Test -> Fix Loop (Python & Node.js) ─────────
-def run_autonomous_loop(client: LlamaCppClient):
-    print(f"\n{Color.YELLOW}[*] Autonomous Dev -> Test -> Fix Loop{Color.RESET}")
-    print("Select language ecosystem:")
-    print("  1. Python (Verified via Pytest)")
-    print("  2. JavaScript / Node.js (Verified via Node test runner)")
-    print("  3. Back to Main Menu")
+# ── Mode 3: Autonomous Dev -> Test -> Fix Loop ────────────────────────────
+PYTHON_CALC_SPEC = """
+Create a Python class named `Calculator` with the following methods:
+1. `add(a, b)`: returns the sum of a and b.
+2. `subtract(a, b)`: returns a minus b.
+3. `multiply(a, b)`: returns a multiplied by b.
+4. `divide(a, b)`: returns a divided by b. If b is 0, raises ValueError("Cannot divide by zero").
+5. `power(a, b)`: returns a raised to the power of b.
+Return ONLY valid Python code inside ```python ... ``` block.
+"""
 
-    choice = input(f"\n{Color.CYAN}Select option [1-3]: {Color.RESET}").strip()
+PYTHON_CALC_TESTS = """import pytest
+from calculator import Calculator
 
+def test_add():
+    calc = Calculator()
+    assert calc.add(10, 5) == 15
+    assert calc.add(-2, 2) == 0
+
+def test_subtract():
+    calc = Calculator()
+    assert calc.subtract(10, 5) == 5
+    assert calc.subtract(0, 7) == -7
+
+def test_multiply():
+    calc = Calculator()
+    assert calc.multiply(4, 3) == 12
+    assert calc.multiply(5, 0) == 0
+
+def test_divide():
+    calc = Calculator()
+    assert calc.divide(10, 2) == 5.0
+    with pytest.raises(ValueError):
+        calc.divide(10, 0)
+
+def test_power():
+    calc = Calculator()
+    assert calc.power(2, 3) == 8
+    assert calc.power(5, 0) == 1
+"""
+
+
+def run_python_loop(client: LlamaCppClient):
     workspace = PROJECT_ROOT / "workspace"
     workspace.mkdir(exist_ok=True)
+    code_file = workspace / "calculator.py"
+    test_file = workspace / "test_calculator.py"
 
-    if choice == "1":
-        # Python Calculator Loop
-        from prototype_cli import run_auto_fix_loop
-        run_auto_fix_loop(client)
+    test_file.write_text(PYTHON_CALC_TESTS, encoding="utf-8")
+    print(f"{Color.CYAN}[1/4] Test suite prepared at: workspace/test_calculator.py{Color.RESET}")
 
-    elif choice == "2":
-        # JavaScript / Node.js Loop
-        print(f"\n{Color.CYAN}[1/3] Generating JavaScript Module & Test Suite...{Color.RESET}")
-        spec = (
-            "Create a JavaScript module with an exported object `mathUtils` with methods:\n"
-            "1. `add(a, b)`: returns a + b\n"
-            "2. `divide(a, b)`: returns a / b. If b is 0, throws new Error('Division by zero')\n"
-            "3. `isEven(n)`: returns true if n is even, false otherwise\n"
-            "Use CommonJS `module.exports = mathUtils;`. Return ONLY valid JS code in a ```javascript ... ``` block."
+    prompt = (
+        f"<|system|>\nYou are an expert Python developer. Write clean, complete code.\n"
+        f"<|user|>\nRequirement:\n{PYTHON_CALC_SPEC}\n<|assistant|>\n"
+    )
+
+    print(f"{Color.CYAN}[2/4] Generating initial Python code...{Color.RESET}")
+    resp = client.generate(prompt, max_tokens=600, temperature=0.2)
+    code = extract_code_block(resp)
+
+    is_valid, msg = validate_python_syntax(code)
+    if not is_valid:
+        print(f"{Color.RED}[!] Initial syntax error: {msg}{Color.RESET}")
+    else:
+        print(f"{Color.GREEN}[✓] Static AST syntax check: PASSED{Color.RESET}")
+
+    code_file.write_text(code, encoding="utf-8")
+    print(f"    Saved code to: {code_file.name}")
+
+    python_exe = str(PROJECT_ROOT / "runtime" / "venv" / "Scripts" / "python.exe")
+    for iteration in range(1, 4):
+        print(f"\n{Color.BOLD}--- Iteration {iteration}/3: Running Pytest ---{Color.RESET}")
+        proc = subprocess.run(
+            [python_exe, "-m", "pytest", str(test_file), "-v", "--tb=short"],
+            cwd=str(workspace),
+            capture_output=True,
+            text=True,
         )
 
-        resp = client.generate(
-            f"<|system|>\nYou are an expert JavaScript developer.\n<|user|>\n{spec}\n<|assistant|>\n",
-            max_tokens=500,
-        )
-        js_code = extract_code_block(resp)
-        code_file = workspace / "mathUtils.js"
-        code_file.write_text(js_code, encoding="utf-8")
-        print(f"  Saved generated JavaScript to: {Color.BOLD}{code_file.name}{Color.RESET}")
+        if proc.returncode == 0:
+            print(f"{Color.GREEN}{Color.BOLD}[✓] ALL PYTHON TESTS PASSED!{Color.RESET}")
+            print(proc.stdout)
+            return
+        else:
+            print(f"{Color.RED}[✗] Tests Failed. Triggering self-correction loop...{Color.RESET}")
+            fix_prompt = (
+                f"<|system|>\nYou are an expert Python debugger.\n<|user|>\n"
+                f"CURRENT CODE:\n```python\n{code}\n```\n\nPYTEST TRACEBACK:\n{proc.stdout}\n\n"
+                f"Fix the code so all tests pass. Return ONLY valid code in a ```python ... ``` block.\n<|assistant|>\n"
+            )
+            resp = client.generate(fix_prompt, max_tokens=700, temperature=0.1)
+            code = extract_code_block(resp)
+            code_file.write_text(code, encoding="utf-8")
+            print(f"    Applied fix. Re-testing...")
 
-        # Built-in Node.js test runner file
-        test_content = """const test = require('node:test');
+
+def run_nodejs_loop(client: LlamaCppClient):
+    workspace = PROJECT_ROOT / "workspace"
+    workspace.mkdir(exist_ok=True)
+    code_file = workspace / "mathUtils.js"
+    test_file = workspace / "test_mathUtils.js"
+
+    print(f"\n{Color.CYAN}[1/3] Generating JavaScript Module...{Color.RESET}")
+    spec = (
+        "Create a JavaScript module with an exported object `mathUtils` with methods:\n"
+        "1. `add(a, b)`: returns a + b\n"
+        "2. `divide(a, b)`: returns a / b. If b is 0, throws new Error('Division by zero')\n"
+        "3. `isEven(n)`: returns true if n is even, false otherwise\n"
+        "Use CommonJS `module.exports = mathUtils;`. Do NOT use third-party libraries. Return ONLY valid JS code in a ```javascript ... ``` block."
+    )
+
+    resp = client.generate(
+        f"<|system|>\nYou are an expert JavaScript developer.\n<|user|>\n{spec}\n<|assistant|>\n",
+        max_tokens=500,
+    )
+    js_code = extract_code_block(resp)
+    code_file.write_text(js_code, encoding="utf-8")
+    print(f"  Saved generated JavaScript to: {Color.BOLD}{code_file.name}{Color.RESET}")
+
+    # Built-in Node.js zero-dependency test runner
+    test_content = """const test = require('node:test');
 const assert = require('node:assert');
 const mathUtils = require('./mathUtils.js');
 
@@ -347,29 +491,41 @@ test('isEven checks even and odd integers', () => {
     assert.strictEqual(mathUtils.isEven(7), false);
 });
 """
-        test_file = workspace / "test_mathUtils.js"
-        test_file.write_text(test_content, encoding="utf-8")
+    test_file.write_text(test_content, encoding="utf-8")
 
-        print(f"\n{Color.CYAN}[2/3] Executing native Node.js tests (`node --test`)...{Color.RESET}")
-        node_path = shutil.which("node")
-        if not node_path:
-            node_path = r"C:\Program Files\nodejs\node.exe"
+    print(f"\n{Color.CYAN}[2/3] Executing native Node.js tests (`node --test`)...{Color.RESET}")
+    node_path = shutil.which("node") or r"C:\Program Files\nodejs\node.exe"
 
-        if os.path.exists(node_path):
-            proc = subprocess.run(
-                [node_path, "--test", str(test_file)],
-                cwd=str(workspace),
-                capture_output=True,
-                text=True,
-            )
-            print(proc.stdout)
-            if proc.returncode == 0:
-                print(f"{Color.GREEN}{Color.BOLD}[✓] ALL JAVASCRIPT TESTS PASSED SUCCESSFULLY!{Color.RESET}")
-            else:
-                print(f"{Color.RED}[!] Tests reported failures. Reviewing error...{Color.RESET}")
-                print(proc.stderr)
+    if os.path.exists(node_path):
+        proc = subprocess.run(
+            [node_path, "--test", str(test_file)],
+            cwd=str(workspace),
+            capture_output=True,
+            text=True,
+        )
+        print(proc.stdout)
+        if proc.returncode == 0:
+            print(f"{Color.GREEN}{Color.BOLD}[✓] ALL JAVASCRIPT TESTS PASSED SUCCESSFULLY!{Color.RESET}")
         else:
-            print(f"{Color.YELLOW}[!] Node.js executable not found in PATH to execute live.{Color.RESET}")
+            print(f"{Color.RED}[!] Tests reported failures.{Color.RESET}")
+            if proc.stderr:
+                print(proc.stderr)
+    else:
+        print(f"{Color.YELLOW}[!] Node.js executable not found in PATH.{Color.RESET}")
+
+
+def run_autonomous_loop(client: LlamaCppClient):
+    print(f"\n{Color.YELLOW}[*] Autonomous Dev -> Test -> Fix Loop{Color.RESET}")
+    print("Select language ecosystem:")
+    print("  1. Python (Verified via Pytest)")
+    print("  2. JavaScript / Node.js (Verified via Node native test runner)")
+    print("  3. Back to Main Menu")
+
+    choice = input(f"\n{Color.CYAN}Select option [1-3]: {Color.RESET}").strip()
+    if choice == "1":
+        run_python_loop(client)
+    elif choice == "2":
+        run_nodejs_loop(client)
 
 
 # ── Mode 4: Universal Code Doctor (Any Language) ──────────────────────────
@@ -421,13 +577,13 @@ def run_universal_code_doctor(client: LlamaCppClient):
 
     print(f"\n{Color.BOLD}=== Target Technology: {Color.GREEN}{lang_info['name']}{Color.RESET} ===")
     print(f"  • File:             {Color.BOLD}{file_name}{Color.RESET}")
-    print(f"  • Test Framework:   {lang_info['framework']}")
+    print(f"  • Framework:        {lang_info['framework']}")
     print(f"  • Code Size:        {len(code_content.splitlines())} lines")
 
     # Step 1: AI Code Audit
     print(f"\n{Color.CYAN}[1/3] Testing Agent auditing {lang_info['name']} for bugs, leaks & security issues...{Color.RESET}")
     audit_prompt = (
-        f"<|system|>\nYou are an expert code quality auditor and senior software testing engineer specialized in {lang_info['name']}.\n"
+        f"<|system|>\nYou are a senior code quality auditor and software testing engineer specialized in {lang_info['name']}.\n"
         f"Analyze the provided code carefully. Identify every bug, logic error, memory leak, concurrency issue, "
         f"and edge case flaw. List each problem with clear headings (e.g. Bug 1: [Issue Name]), line reference, "
         f"and why it breaks.\n"
@@ -442,12 +598,14 @@ def run_universal_code_doctor(client: LlamaCppClient):
         audit_report += tok
     print(f"\n{Color.MAGENTA}-------------------------------------------------------{Color.RESET}\n")
 
-    # Step 2: Automated Unit Test Suite Generation
+    # Step 2: Automated Unit Test Suite Generation (Zero External Dependency Rule)
     print(f"{Color.CYAN}[2/3] Generating native unit test suite using {lang_info['framework']}...{Color.RESET}")
     test_gen_prompt = (
         f"<|system|>\nYou are a professional QA engineer. Write unit tests for this {lang_info['name']} code.\n"
-        f"Use the standard {lang_info['framework']} framework.\n"
-        f"Test both normal execution and edge cases that trigger the bugs found above.\n"
+        f"RULES FOR TESTING:\n"
+        f"1. {lang_info.get('test_instructions')}\n"
+        f"2. Use relative local import for the module under test: require('./{file_name}') or import.\n"
+        f"3. DO NOT import uninstalled third-party libraries.\n"
         f"Return ONLY valid code inside a code block.\n"
         f"<|user|>\nTARGET CODE:\n```{file_path.suffix.lstrip('.')}\n{code_content}\n```\n<|assistant|>\n"
     )
@@ -460,7 +618,7 @@ def run_universal_code_doctor(client: LlamaCppClient):
     test_file.write_text(test_code, encoding="utf-8")
     print(f"  Generated test suite: {Color.BOLD}{test_file.name}{Color.RESET}")
 
-    # Optional: Real execution for Python / Node.js
+    # Step 3: Run execution if supported locally
     ext = file_path.suffix.lower()
     if ext == ".py":
         print(f"\n{Color.CYAN}[Execution] Running real pytest against test suite...{Color.RESET}")
@@ -470,15 +628,18 @@ def run_universal_code_doctor(client: LlamaCppClient):
     elif ext in (".js", ".ts"):
         node_path = shutil.which("node") or r"C:\Program Files\nodejs\node.exe"
         if os.path.exists(node_path):
-            print(f"\n{Color.CYAN}[Execution] Running real Node.js test runner...{Color.RESET}")
+            print(f"\n{Color.CYAN}[Execution] Running native Node.js test runner...{Color.RESET}")
             p = subprocess.run([node_path, "--test", str(test_file)], cwd=str(workspace), capture_output=True, text=True)
             print(p.stdout)
+            if p.stderr:
+                print(f"{Color.RED}{p.stderr}{Color.RESET}")
 
-    # Step 3: Produce Clean, Fixed Code in that language
-    print(f"\n{Color.CYAN}[3/3] Development Agent synthesizing clean, corrected {lang_info['name']} code...{Color.RESET}")
+    # Step 4: Produce Clean, Fixed Code in that language without external packages
+    print(f"\n{Color.CYAN}[4/4] Development Agent synthesizing clean, corrected {lang_info['name']} code...{Color.RESET}")
     fix_prompt = (
         f"<|system|>\nYou are a principal {lang_info['name']} architect. Provide the complete, production-ready, "
-        f"fixed version of the code resolving all bugs, memory management, and edge cases.\n"
+        f"fixed version of the code resolving all bugs, input validations, and edge cases.\n"
+        f"IMPORTANT: Use ONLY built-in features and standard libraries of {lang_info['name']}. DO NOT import external third-party npm/pip packages (e.g., in JS use standard Math operations or integer cents, do not require decimal.js).\n"
         f"Return ONLY the clean fixed code inside a single code block.\n"
         f"<|user|>\nORIGINAL CODE:\n```{file_path.suffix.lstrip('.')}\n{code_content}\n```\n\n"
         f"DIAGNOSTIC REPORT:\n{audit_report}\n<|assistant|>\n"
