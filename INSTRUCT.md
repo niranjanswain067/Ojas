@@ -84,9 +84,9 @@ Ojas/
 | 3 | Database Initialization | 27 Oct 2026 | 1 day | ✅ Done | `storage/db.py` — 12 tables, FTS5, triggers |
 | 4 | LLM Client | 29 Oct 2026 | 2 days | ✅ Done | `llm/client.py`, `llm/llama_cpp_client.py` |
 | 5 | Health Endpoint & FastAPI App | 30 Oct 2026 | 1 day | ✅ Done | `main.py`, `api/health.py`, `schemas/common.py` |
-| 6 | Frontend Scaffold | 01 Nov 2026 | 2 days | 🔲 **NEXT** | `frontend/` — Vite + React + TS |
-| 7 | UI Shell & Navigation | 03 Nov 2026 | 2 days | 🔲 Pending | AppShell, 4 pages, routing |
-| 8 | Project CRUD | 05 Nov 2026 | 2 days | 🔲 Pending | Projects API + UI |
+| 6 | Frontend Scaffold | 01 Nov 2026 | 2 days | ✅ Done | `frontend/` — Vite + React + TS, offline Monaco |
+| 7 | UI Shell & Navigation | 03 Nov 2026 | 2 days | ✅ Done | AppShell, StatusChip, 4 pages, routing |
+| 8 | Project CRUD | 05 Nov 2026 | 2 days | 🔲 **NEXT** | Projects API + UI |
 | 9 | File Management API | 06 Nov 2026 | 1 day | 🔲 Pending | Workspace file CRUD |
 | 10 | Workspace Layout & Editor | 08 Nov 2026 | 2 days | 🔲 Pending | Monaco editor, 4-panel layout |
 | 11 | Settings API & Page | 09 Nov 2026 | 1 day | 🔲 Pending | Settings endpoint + form |
@@ -100,7 +100,7 @@ Ojas/
 | 19 | Traceability, Reports & UI Polish | 23 Nov 2026 | 2 days | 🔲 Pending | Reports page, streaming |
 | 20 | Integration Testing & Final QA | 25 Nov 2026 | 2 days | 🔲 Pending | 3 sample projects, metrics |
 
-**Overall progress: 5 / 20 phases complete (25% done) — Currently 4 days behind schedule (actual completion of Phase 5: 3 Nov)**
+**Overall progress: 7 / 20 phases complete (35% done) — Phases 1 through 7 verified & operational**
 
 ---
 
@@ -203,25 +203,28 @@ All design docs are in `docs/`. Read these before implementing later phases:
 
 ---
 
-## 8. What To Do Next (Phase 6)
+## 8. What To Do Next (Phase 8: Project CRUD)
 
-**Goal:** Scaffold the React + TypeScript frontend with Vite.
+**Goal:** User can create, view, list, and delete projects. Project list displays in the UI.
 
 ### Steps
-1. Run `npm create vite@latest frontend -- --template react-ts` in project root
-2. `cd frontend && npm install`
-3. Install UI deps: `react-router-dom @tanstack/react-query zustand tailwindcss lucide-react react-resizable-panels react-markdown remark-gfm monaco-editor @monaco-editor/react`
-4. Configure `vite.config.ts` — proxy `/api` → `http://127.0.0.1:8000`
-5. Set up Tailwind CSS
-6. Create `frontend/src/api/client.ts` (base fetch wrapper)
-7. Create `frontend/src/api/types.ts` (TypeScript types mirroring Pydantic schemas)
-8. Create `frontend/src/monaco/loader.ts` (offline Monaco loader, no CDN)
+1. Create `backend/app/schemas/projects.py` (Pydantic models: `ProjectCreate`, `ProjectUpdate`, `ProjectResponse`, `ProjectListResponse`).
+2. Create `backend/app/storage/project_store.py` (DB queries for `projects` table, UUID generation, workspace folder management).
+3. Create `backend/app/api/projects.py` (Router with GET, POST, PATCH, DELETE at `/api/projects`).
+4. Register the router in `backend/app/main.py`.
+5. Create frontend components in `frontend/src/`:
+   - `src/api/projects.ts` (API client hooks with TanStack Query)
+   - `src/components/projects/ProjectCard.tsx`
+   - `src/components/projects/NewProjectDialog.tsx`
+   - `src/components/shared/ConfirmDialog.tsx`
+   - `src/pages/ProjectsPage.tsx` (Grid view with create modal)
+6. Write unit tests for project store and API routes.
 
 ### Verification
-- `cd frontend && npm run dev` → Vite dev server on `http://localhost:5173`
-- `fetch('/api/health')` from browser console → returns backend health JSON
-- `npm run build` → no TypeScript errors
-- Monaco editor loads with no CDN network requests
+- `POST /api/projects` creates project and initializes `workspace/<project_id>/`
+- `GET /api/projects` returns project list with aggregated counts
+- UI displays project cards with status, date, and delete confirmation
+- `DELETE /api/projects/{id}` cascades to DB records and workspace folders
 
 ---
 
