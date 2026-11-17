@@ -254,3 +254,44 @@ export interface TraceabilityLink {
   bug_id?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Workspace File Schemas
+// ---------------------------------------------------------------------------
+
+export interface FileNode {
+  name: string;
+  path: string;
+  type: 'file' | 'directory';
+  size_bytes: number;
+  is_generated: boolean;
+  pending_approval: boolean;
+  updated_at?: string | null;
+  children?: FileNode[] | null;
+}
+
+export interface FileTreeResponse {
+  tree: FileNode[];
+  root?: FileNode | null;
+}
+
+export interface FileContentResponse {
+  path: string;
+  content: string;
+  size_bytes: number;
+  language: string;
+  is_generated: boolean;
+  pending_approval: boolean;
+  linked_req_ids: string[];
+  updated_at?: string | null;
+}
+
+export interface FileSaveRequest {
+  content: string;
+}
+
+export interface FileSaveResponse {
+  path: string;
+  size_bytes: number;
+  updated_at: string;
+}
+

@@ -87,8 +87,8 @@ Ojas/
 | 6 | Frontend Scaffold | 01 Nov 2026 | 2 days | ✅ Done | `frontend/` — Vite + React + TS, offline Monaco |
 | 7 | UI Shell & Navigation | 03 Nov 2026 | 2 days | ✅ Done | AppShell, StatusChip, 4 pages, routing |
 | 8 | Project CRUD | 05 Nov 2026 | 2 days | ✅ Done | Projects API + store, ProjectsPage, ProjectCard |
-| 9 | File Management API | 06 Nov 2026 | 1 day | 🔲 **NEXT** | Workspace file CRUD |
-| 10 | Workspace Layout & Editor | 08 Nov 2026 | 2 days | 🔲 Pending | Monaco editor, 4-panel layout |
+| 9 | File Management API | 06 Nov 2026 | 1 day | ✅ Done | Workspace file CRUD & safe tree traversal |
+| 10 | Workspace Layout & Editor | 08 Nov 2026 | 2 days | 🔲 **NEXT** | Monaco editor, 4-panel layout |
 | 11 | Settings API & Page | 09 Nov 2026 | 1 day | 🔲 Pending | Settings endpoint + form |
 | 12 | Task Manager & Event Bus | 10 Nov 2026 | 1 day | 🔲 Pending | ThreadPool, SSE |
 | 13 | Document Upload & Parsing | 12 Nov 2026 | 2 days | 🔲 Pending | PDF/DOCX/TXT parsing |
@@ -100,7 +100,7 @@ Ojas/
 | 19 | Traceability, Reports & UI Polish | 23 Nov 2026 | 2 days | 🔲 Pending | Reports page, streaming |
 | 20 | Integration Testing & Final QA | 25 Nov 2026 | 2 days | 🔲 Pending | 3 sample projects, metrics |
 
-**Overall progress: 8 / 20 phases complete (40% done) — Phases 1 through 8 verified & operational**
+**Overall progress: 9 / 20 phases complete (45% done) — Phases 1 through 9 verified & operational**
 
 ---
 
@@ -119,7 +119,7 @@ runtime\venv\Scripts\uvicorn.exe backend.app.main:app --host 127.0.0.1 --port 80
 cd c:\Users\Asus\Desktop\Ojas
 runtime\venv\Scripts\pytest.exe backend/tests/ -v
 ```
-Current result: **23 passed** (3 config + 11 health + 9 projects tests)
+Current result: **35 passed** (3 config + 11 health + 9 projects + 12 files tests)
 
 ### Python interpreter
 Always use the venv interpreter — **not** the system Python:
@@ -203,28 +203,27 @@ All design docs are in `docs/`. Read these before implementing later phases:
 
 ---
 
-## 8. What To Do Next (Phase 9: File Management API)
+## 8. What To Do Next (Phase 10: Workspace Layout & Editor)
 
-**Goal:** Read, write, and delete files within a project workspace. File tree API works. Path traversal attacks are blocked.
+**Goal:** Workspace page has the 4-panel layout: sidebar (file tree), editor (Monaco with tabs), run panel, bottom panel. Files open in the editor.
 
 ### Steps
-1. Create `backend/app/schemas/files.py` (`FileNode`, `FileTreeResponse`, `FileContentResponse`, `FileSaveRequest`).
-2. Create `backend/app/storage/file_store.py` (`path_is_safe`, `get_file_tree`, `read_file`, `write_file`, `delete_file`).
-3. Create `backend/app/api/files.py` (Endpoints for file tree, reading file content, saving file content, and deleting file with path safety checks).
-4. Register the router in `backend/app/main.py`.
-5. Write unit tests in `backend/tests/test_files.py` covering:
-   - Tree traversal (empty directory, nested directories, files).
-   - Reading files and detecting syntax language.
-   - Writing files and automatic parent directory creation.
-   - Deletion of files and cleanup of empty directories.
-   - Path traversal security rejection (`..`, absolute paths, symlinks).
+1. Create Zustand store in `frontend/src/store/uiStore.ts` for UI state (open files, active file/tab, panel sizes).
+2. Create sidebar component in `frontend/src/components/workspace/Sidebar.tsx` with tabs: Docs, Code, Tests.
+3. Create recursive file tree component in `frontend/src/components/workspace/FileTree.tsx` fetching from `/api/projects/{id}/files`.
+4. Create editor tabs component in `frontend/src/components/editor/EditorTabs.tsx` with close button and dirty state indicator.
+5. Create Monaco editor wrapper in `frontend/src/components/editor/CodeEditor.tsx` using local offline Monaco loader.
+6. Create run panel placeholder in `frontend/src/components/workspace/RunPanel.tsx` (prompt box, plan, develop, test buttons).
+7. Create bottom panel in `frontend/src/components/workspace/BottomPanel.tsx` with tabs: Logs, Tests, Bugs, Model.
+8. Wire `frontend/src/pages/WorkspacePage.tsx` using `react-resizable-panels` to assemble the 4-panel workspace layout.
+9. Write unit tests for UI store, FileTree, EditorTabs, and panels.
 
 ### Verification
-- `GET /api/projects/{id}/files` returns recursive workspace file tree.
-- `GET /api/projects/{id}/files/{path}` returns file content and language.
-- `PUT /api/projects/{id}/files/{path}` writes file content and saves to disk.
-- `DELETE /api/projects/{id}/files/{path}` removes file.
-- Path traversal attempts (`../../etc/passwd`, `/windows/system32`, etc.) return 400 Bad Request / 403 Forbidden.
+- Navigate to `/workspace/:projectId` opens 4-panel layout.
+- File tree loads files from `/api/projects/:id/files`.
+- Clicking a file opens it in a Monaco editor tab.
+- Editing file and saving triggers `saveFile` API.
+- Multiple tabs can be switched and closed.
 
 ---
 
