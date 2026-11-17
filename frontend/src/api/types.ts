@@ -63,13 +63,30 @@ export type SettingsUpdate = Partial<Settings>;
 // Project Schemas
 // ---------------------------------------------------------------------------
 
+export type ProjectStatus =
+  | 'idle'
+  | 'indexing'
+  | 'planning'
+  | 'developing'
+  | 'testing'
+  | 'fixing'
+  | 'done'
+  | 'failed';
+
 export interface Project {
   id: string;
   name: string;
   description: string;
+  status: ProjectStatus;
+  document_count: number;
+  requirement_count: number;
+  test_case_count: number;
+  test_count: number;
+  bug_count: number;
+  run_count: number;
+  last_run_result?: string | null;
   created_at: string;
   updated_at: string;
-  status: 'idle' | 'running' | 'completed' | 'failed';
 }
 
 export interface ProjectCreate {
@@ -80,6 +97,11 @@ export interface ProjectCreate {
 export interface ProjectUpdate {
   name?: string;
   description?: string;
+}
+
+export interface ProjectListResponse {
+  projects: Project[];
+  total: number;
 }
 
 // ---------------------------------------------------------------------------

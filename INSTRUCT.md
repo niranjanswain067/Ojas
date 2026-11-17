@@ -86,8 +86,8 @@ Ojas/
 | 5 | Health Endpoint & FastAPI App | 30 Oct 2026 | 1 day | ✅ Done | `main.py`, `api/health.py`, `schemas/common.py` |
 | 6 | Frontend Scaffold | 01 Nov 2026 | 2 days | ✅ Done | `frontend/` — Vite + React + TS, offline Monaco |
 | 7 | UI Shell & Navigation | 03 Nov 2026 | 2 days | ✅ Done | AppShell, StatusChip, 4 pages, routing |
-| 8 | Project CRUD | 05 Nov 2026 | 2 days | 🔲 **NEXT** | Projects API + UI |
-| 9 | File Management API | 06 Nov 2026 | 1 day | 🔲 Pending | Workspace file CRUD |
+| 8 | Project CRUD | 05 Nov 2026 | 2 days | ✅ Done | Projects API + store, ProjectsPage, ProjectCard |
+| 9 | File Management API | 06 Nov 2026 | 1 day | 🔲 **NEXT** | Workspace file CRUD |
 | 10 | Workspace Layout & Editor | 08 Nov 2026 | 2 days | 🔲 Pending | Monaco editor, 4-panel layout |
 | 11 | Settings API & Page | 09 Nov 2026 | 1 day | 🔲 Pending | Settings endpoint + form |
 | 12 | Task Manager & Event Bus | 10 Nov 2026 | 1 day | 🔲 Pending | ThreadPool, SSE |
@@ -100,7 +100,7 @@ Ojas/
 | 19 | Traceability, Reports & UI Polish | 23 Nov 2026 | 2 days | 🔲 Pending | Reports page, streaming |
 | 20 | Integration Testing & Final QA | 25 Nov 2026 | 2 days | 🔲 Pending | 3 sample projects, metrics |
 
-**Overall progress: 7 / 20 phases complete (35% done) — Phases 1 through 7 verified & operational**
+**Overall progress: 8 / 20 phases complete (40% done) — Phases 1 through 8 verified & operational**
 
 ---
 
@@ -119,7 +119,7 @@ runtime\venv\Scripts\uvicorn.exe backend.app.main:app --host 127.0.0.1 --port 80
 cd c:\Users\Asus\Desktop\Ojas
 runtime\venv\Scripts\pytest.exe backend/tests/ -v
 ```
-Current result: **14 passed** (3 config + 11 health tests)
+Current result: **23 passed** (3 config + 11 health + 9 projects tests)
 
 ### Python interpreter
 Always use the venv interpreter — **not** the system Python:
@@ -203,28 +203,28 @@ All design docs are in `docs/`. Read these before implementing later phases:
 
 ---
 
-## 8. What To Do Next (Phase 8: Project CRUD)
+## 8. What To Do Next (Phase 9: File Management API)
 
-**Goal:** User can create, view, list, and delete projects. Project list displays in the UI.
+**Goal:** Read, write, and delete files within a project workspace. File tree API works. Path traversal attacks are blocked.
 
 ### Steps
-1. Create `backend/app/schemas/projects.py` (Pydantic models: `ProjectCreate`, `ProjectUpdate`, `ProjectResponse`, `ProjectListResponse`).
-2. Create `backend/app/storage/project_store.py` (DB queries for `projects` table, UUID generation, workspace folder management).
-3. Create `backend/app/api/projects.py` (Router with GET, POST, PATCH, DELETE at `/api/projects`).
+1. Create `backend/app/schemas/files.py` (`FileNode`, `FileTreeResponse`, `FileContentResponse`, `FileSaveRequest`).
+2. Create `backend/app/storage/file_store.py` (`path_is_safe`, `get_file_tree`, `read_file`, `write_file`, `delete_file`).
+3. Create `backend/app/api/files.py` (Endpoints for file tree, reading file content, saving file content, and deleting file with path safety checks).
 4. Register the router in `backend/app/main.py`.
-5. Create frontend components in `frontend/src/`:
-   - `src/api/projects.ts` (API client hooks with TanStack Query)
-   - `src/components/projects/ProjectCard.tsx`
-   - `src/components/projects/NewProjectDialog.tsx`
-   - `src/components/shared/ConfirmDialog.tsx`
-   - `src/pages/ProjectsPage.tsx` (Grid view with create modal)
-6. Write unit tests for project store and API routes.
+5. Write unit tests in `backend/tests/test_files.py` covering:
+   - Tree traversal (empty directory, nested directories, files).
+   - Reading files and detecting syntax language.
+   - Writing files and automatic parent directory creation.
+   - Deletion of files and cleanup of empty directories.
+   - Path traversal security rejection (`..`, absolute paths, symlinks).
 
 ### Verification
-- `POST /api/projects` creates project and initializes `workspace/<project_id>/`
-- `GET /api/projects` returns project list with aggregated counts
-- UI displays project cards with status, date, and delete confirmation
-- `DELETE /api/projects/{id}` cascades to DB records and workspace folders
+- `GET /api/projects/{id}/files` returns recursive workspace file tree.
+- `GET /api/projects/{id}/files/{path}` returns file content and language.
+- `PUT /api/projects/{id}/files/{path}` writes file content and saves to disk.
+- `DELETE /api/projects/{id}/files/{path}` removes file.
+- Path traversal attempts (`../../etc/passwd`, `/windows/system32`, etc.) return 400 Bad Request / 403 Forbidden.
 
 ---
 

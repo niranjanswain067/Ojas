@@ -33,26 +33,37 @@ describe('App Navigation and Shell', () => {
   });
 
   it('renders top navigation and defaults to Projects page', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: new Headers({ 'content-type': 'application/json' }),
-      json: async () => ({
-        status: 'healthy',
-        model_loaded: true,
-        model_name: 'qwen2.5-coder-3b-instruct-q4_k_m.gguf',
-        load_time_seconds: 1.2,
-        version: '0.1.0',
-        paths: {
-          workspace: 'workspace/',
-          models: 'models/',
-          data: 'data/',
-          logs: 'logs/',
-          reports: 'reports/',
-        },
-        last_error: null,
-      }),
-    } as Response);
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/api/projects')) {
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => ({ projects: [], total: 0 }),
+        } as Response;
+      }
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({
+          status: 'healthy',
+          model_loaded: true,
+          model_name: 'qwen2.5-coder-3b-instruct-q4_k_m.gguf',
+          load_time_seconds: 1.2,
+          version: '0.1.0',
+          paths: {
+            workspace: 'workspace/',
+            models: 'models/',
+            data: 'data/',
+            logs: 'logs/',
+            reports: 'reports/',
+          },
+          last_error: null,
+        }),
+      } as Response;
+    });
 
     render(<TestApp initialEntry="/" />);
 
@@ -79,20 +90,31 @@ describe('App Navigation and Shell', () => {
   });
 
   it('navigates between routes on link click', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: new Headers({ 'content-type': 'application/json' }),
-      json: async () => ({
-        status: 'healthy',
-        model_loaded: false,
-        model_name: '',
-        load_time_seconds: 0,
-        version: '0.1.0',
-        paths: { workspace: '', models: '', data: '', logs: '', reports: '' },
-        last_error: null,
-      }),
-    } as Response);
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/api/projects')) {
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => ({ projects: [], total: 0 }),
+        } as Response;
+      }
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({
+          status: 'healthy',
+          model_loaded: false,
+          model_name: '',
+          load_time_seconds: 0,
+          version: '0.1.0',
+          paths: { workspace: '', models: '', data: '', logs: '', reports: '' },
+          last_error: null,
+        }),
+      } as Response;
+    });
 
     render(<TestApp initialEntry="/projects" />);
 

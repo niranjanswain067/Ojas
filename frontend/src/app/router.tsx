@@ -23,6 +23,10 @@ export const routes: RouteObject[] = [
         element: <WorkspacePage />,
       },
       {
+        path: 'workspace/:projectId',
+        element: <WorkspacePage />,
+      },
+      {
         path: 'reports',
         element: <ReportsPage />,
       },

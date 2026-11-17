@@ -37,7 +37,7 @@ Manager   Ingest Index  Search Agent   +SSE      Agent   Loop     +Polish  QA
 | 05 | Health Endpoint & FastAPI App | 30 Oct 2026 | 30 Oct 2026 | 1 day | ✅ Done |
 | 06 | Frontend Scaffold | 31 Oct 2026 | 01 Nov 2026 | 2 days | 🔲 Pending |
 | 07 | UI Shell & Navigation | 02 Nov 2026 | 03 Nov 2026 | 2 days | 🔲 Pending |
-| 08 | Project CRUD | 04 Nov 2026 | 05 Nov 2026 | 2 days | 🔲 Pending |
+| 08 | Project CRUD | 04 Nov 2026 | 05 Nov 2026 | 2 days | ✅ Done |
 | 09 | File Management API | 06 Nov 2026 | 06 Nov 2026 | 1 day | 🔲 Pending |
 | 10 | Workspace Layout & Editor | 07 Nov 2026 | 08 Nov 2026 | 2 days | 🔲 Pending |
 | 11 | Settings API & Page | 09 Nov 2026 | 09 Nov 2026 | 1 day | 🔲 Pending |
@@ -537,7 +537,7 @@ frontend/src/
 
 ## Phase 8: Project CRUD (Backend + Frontend)
 
-> 📅 **Start:** 04 Nov 2026 &nbsp;|&nbsp; **Deadline:** 05 Nov 2026 &nbsp;|&nbsp; **Duration:** 2 days &nbsp;|&nbsp; **Status:** 🔲 Pending
+> 📅 **Start:** 04 Nov 2026 &nbsp;|&nbsp; **Deadline:** 05 Nov 2026 &nbsp;|&nbsp; **Duration:** 2 days &nbsp;|&nbsp; **Status:** ✅ Done
 
 **Goal:** User can create, view, and delete projects. Project list displays in the UI.
 
