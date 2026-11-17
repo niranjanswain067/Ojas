@@ -88,8 +88,8 @@ Ojas/
 | 7 | UI Shell & Navigation | 03 Nov 2026 | 2 days | ✅ Done | AppShell, StatusChip, 4 pages, routing |
 | 8 | Project CRUD | 05 Nov 2026 | 2 days | ✅ Done | Projects API + store, ProjectsPage, ProjectCard |
 | 9 | File Management API | 06 Nov 2026 | 1 day | ✅ Done | Workspace file CRUD & safe tree traversal |
-| 10 | Workspace Layout & Editor | 08 Nov 2026 | 2 days | 🔲 **NEXT** | Monaco editor, 4-panel layout |
-| 11 | Settings API & Page | 09 Nov 2026 | 1 day | 🔲 Pending | Settings endpoint + form |
+| 10 | Workspace Layout & Editor | 08 Nov 2026 | 2 days | ✅ Done | Monaco editor, 4-panel resizable layout |
+| 11 | Settings API & Page | 09 Nov 2026 | 1 day | 🔲 **NEXT** | Settings endpoint + form |
 | 12 | Task Manager & Event Bus | 10 Nov 2026 | 1 day | 🔲 Pending | ThreadPool, SSE |
 | 13 | Document Upload & Parsing | 12 Nov 2026 | 2 days | 🔲 Pending | PDF/DOCX/TXT parsing |
 | 14 | Chunking, Embedding & Indexing | 14 Nov 2026 | 2 days | 🔲 Pending | REQ-IDs, Chroma, FTS5 |
@@ -100,7 +100,7 @@ Ojas/
 | 19 | Traceability, Reports & UI Polish | 23 Nov 2026 | 2 days | 🔲 Pending | Reports page, streaming |
 | 20 | Integration Testing & Final QA | 25 Nov 2026 | 2 days | 🔲 Pending | 3 sample projects, metrics |
 
-**Overall progress: 9 / 20 phases complete (45% done) — Phases 1 through 9 verified & operational**
+**Overall progress: 10 / 20 phases complete (50% done) — Phases 1 through 10 verified & operational**
 
 ---
 
@@ -203,27 +203,29 @@ All design docs are in `docs/`. Read these before implementing later phases:
 
 ---
 
-## 8. What To Do Next (Phase 10: Workspace Layout & Editor)
+## 8. What To Do Next (Phase 11: Settings API & Page)
 
-**Goal:** Workspace page has the 4-panel layout: sidebar (file tree), editor (Monaco with tabs), run panel, bottom panel. Files open in the editor.
+**Goal:** Settings page shows and edits configuration. Health card displays model status and runtime metrics.
 
 ### Steps
-1. Create Zustand store in `frontend/src/store/uiStore.ts` for UI state (open files, active file/tab, panel sizes).
-2. Create sidebar component in `frontend/src/components/workspace/Sidebar.tsx` with tabs: Docs, Code, Tests.
-3. Create recursive file tree component in `frontend/src/components/workspace/FileTree.tsx` fetching from `/api/projects/{id}/files`.
-4. Create editor tabs component in `frontend/src/components/editor/EditorTabs.tsx` with close button and dirty state indicator.
-5. Create Monaco editor wrapper in `frontend/src/components/editor/CodeEditor.tsx` using local offline Monaco loader.
-6. Create run panel placeholder in `frontend/src/components/workspace/RunPanel.tsx` (prompt box, plan, develop, test buttons).
-7. Create bottom panel in `frontend/src/components/workspace/BottomPanel.tsx` with tabs: Logs, Tests, Bugs, Model.
-8. Wire `frontend/src/pages/WorkspacePage.tsx` using `react-resizable-panels` to assemble the 4-panel workspace layout.
-9. Write unit tests for UI store, FileTree, EditorTabs, and panels.
+1. Create `backend/app/schemas/settings.py` (`SettingsResponse`, `SettingsUpdateRequest`).
+2. Create `backend/app/api/settings.py` (`GET /api/settings`, `PUT /api/settings`).
+   - Validate new values against allowed ranges.
+   - Update `config/settings.json` and in-memory singleton.
+   - Flag `model_reload_required` if model path or context size changed.
+3. Register the router in `backend/app/main.py`.
+4. Create frontend components in `frontend/src/`:
+   - `src/api/settings.ts` (API client functions for get and update settings).
+   - `src/components/settings/SettingsForm.tsx` (Form with validation, grouping model, fix loop, and appearance).
+   - `src/components/settings/HealthCard.tsx` (Model loaded status, backend version, memory, paths, reload trigger).
+   - Update `src/pages/SettingsPage.tsx` with TanStack Query integration.
+5. Write unit tests for settings API and frontend form.
 
 ### Verification
-- Navigate to `/workspace/:projectId` opens 4-panel layout.
-- File tree loads files from `/api/projects/:id/files`.
-- Clicking a file opens it in a Monaco editor tab.
-- Editing file and saving triggers `saveFile` API.
-- Multiple tabs can be switched and closed.
+- `GET /api/settings` returns full configuration.
+- `PUT /api/settings` updates config file and persists changes across server restarts.
+- Settings page allows modifying temperature, context size, and timeouts with live validation.
+- Health card accurately reflects backend and model state.
 
 ---
 

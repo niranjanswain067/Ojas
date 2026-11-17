@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Folders,
@@ -83,6 +83,9 @@ export const AppShell: React.FC = () => {
     );
   };
 
+  const location = useLocation();
+  const isWorkspace = location.pathname.startsWith('/workspace');
+
   return (
     <div className="min-h-screen bg-bg text-text flex flex-col font-sans selection:bg-primary/20">
       {/* Top Navigation Bar */}
@@ -145,7 +148,7 @@ export const AppShell: React.FC = () => {
       </header>
 
       {/* Main Outlet */}
-      <main className="flex-1 flex flex-col p-6 max-w-7xl w-full mx-auto">
+      <main className={`flex-1 flex flex-col w-full ${isWorkspace ? 'h-[calc(100vh-3.5rem)] overflow-hidden' : 'p-6 max-w-7xl mx-auto'}`}>
         <Outlet />
       </main>
     </div>

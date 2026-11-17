@@ -712,7 +712,7 @@ Register router in `main.py`.
 
 ## Phase 10: Workspace Layout & Editor
 
-> 📅 **Start:** 07 Nov 2026 &nbsp;|&nbsp; **Deadline:** 08 Nov 2026 &nbsp;|&nbsp; **Duration:** 2 days &nbsp;|&nbsp; **Status:** 🔲 Pending
+> 📅 **Start:** 07 Nov 2026 &nbsp;|&nbsp; **Deadline:** 08 Nov 2026 &nbsp;|&nbsp; **Duration:** 2 days &nbsp;|&nbsp; **Status:** ✅ Done
 
 **Goal:** Workspace page has the 4-panel layout: sidebar (file tree), editor (Monaco with tabs), run panel, bottom panel. Files open in the editor.
 
