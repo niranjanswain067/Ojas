@@ -159,3 +159,4 @@ async def get_run_status(run_id: str) -> TaskStatusResponse:
         error=info.get("error"),
         duration_seconds=info.get("duration_seconds", 0.0),
     )
+

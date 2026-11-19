@@ -109,3 +109,4 @@ def test_sse_event_stream(client: TestClient):
         assert "event: connected" in full_stream
         assert "event: stage" in full_stream
         assert "event: done" in full_stream
+

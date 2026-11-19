@@ -102,3 +102,4 @@ def test_task_failure_records_error(tm: TaskManager):
     info = tm.get_task_info("run-fail")
     assert info is not None
     assert "Simulated failure in test task" in (info["error"] or "")
+
