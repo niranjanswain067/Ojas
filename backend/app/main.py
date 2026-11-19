@@ -45,12 +45,27 @@ def get_llm_client():
     return _llm_client
 
 
+def reload_llm_client() -> bool:
+    """Reload the global LLM client with current settings. Returns True if loaded."""
+    global _llm_client
+    try:
+        from backend.app.llm.llama_cpp_client import LlamaCppClient
+        logger.info("Reloading LLM model with current settings...")
+        _llm_client = LlamaCppClient()
+        return _llm_client.is_loaded()
+    except Exception:
+        logger.exception("Unexpected error while reloading LLM model.")
+        _llm_client = None
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Logging setup
 # ---------------------------------------------------------------------------
 
 def _configure_logging(log_level: str) -> None:
     level = log_level.upper()
+    (_PROJECT_ROOT / "logs").mkdir(parents=True, exist_ok=True)
     logging.config.dictConfig(
         {
             "version": 1,
@@ -214,8 +229,10 @@ async def internal_error_handler(request: Request, exc) -> JSONResponse:
 # ---------------------------------------------------------------------------
 
 from backend.app.api.health import router as health_router  # noqa: E402
+from backend.app.api.settings import router as settings_router  # noqa: E402
 
 app.include_router(health_router)
+app.include_router(settings_router)
 
 # Future routers will be added here (projects, files, settings, runs …)
 
