@@ -204,3 +204,4 @@ export const UploadArea: React.FC<UploadAreaProps> = ({
     </div>
   );
 };
+

@@ -134,3 +134,4 @@ def update_document_status(
             (status, document_id),
         )
     return get_document_by_id(document_id)
+

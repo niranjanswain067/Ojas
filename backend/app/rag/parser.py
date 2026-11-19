@@ -147,3 +147,4 @@ def parse_document(file_path: str | Path, file_type: Optional[str] = None) -> st
         raise ValueError(
             f"Unsupported file type: '{type_to_use}'. Only docx, pdf, txt, and md are supported."
         )
+

@@ -55,3 +55,4 @@ class DocumentDetailResponse(BaseModel):
 
     document: DocumentResponse
     raw_text: Optional[str] = None
+

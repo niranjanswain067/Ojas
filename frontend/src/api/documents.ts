@@ -117,3 +117,4 @@ export async function deleteDocument(projectId: string, documentId: string): Pro
     throw new Error(`Failed to delete document: ${res.statusText}`);
   }
 }
+

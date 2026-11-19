@@ -312,3 +312,4 @@ export const DocsPanel: React.FC<DocsPanelProps> = ({
     </div>
   );
 };
+

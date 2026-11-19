@@ -71,7 +71,8 @@ async def upload_documents(
     skipped_count = 0
 
     for upload_file in files:
-        filename = upload_file.filename or "document.txt"
+        raw_name = upload_file.filename or "document.txt"
+        filename = Path(raw_name).name or "document.txt"
         file_ext = Path(filename).suffix.lower()
         file_type = detect_file_type(filename)
 
@@ -263,3 +264,4 @@ async def delete_document(project_id: str, document_id: str):
             logger.warning("Could not delete file %s from disk: %s", file_path, exc)
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+

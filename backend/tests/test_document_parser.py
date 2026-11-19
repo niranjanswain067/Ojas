@@ -101,3 +101,4 @@ def test_nonexistent_file_raises(temp_docs_dir: Path):
     missing = temp_docs_dir / "missing.txt"
     with pytest.raises(FileNotFoundError):
         parse_document(missing)
+

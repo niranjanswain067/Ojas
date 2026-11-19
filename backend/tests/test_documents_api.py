@@ -73,6 +73,18 @@ def test_upload_docx_document(client: TestClient):
     assert res.json()["total_uploaded"] == 1
 
 
+def test_upload_sanitizes_path_traversal(client: TestClient):
+    """Filenames with directory traversal should be sanitized to basename."""
+    project_id = "test-doc-proj"
+    content = b"REQ-999: Path traversal attack protection."
+    files = [("files", ("../../evil.txt", io.BytesIO(content), "text/plain"))]
+
+    res = client.post(f"/api/projects/{project_id}/documents", files=files)
+    assert res.status_code == 201
+    doc_info = res.json()["documents"][0]
+    assert doc_info["filename"] == "evil.txt"
+
+
 def test_reject_unsupported_file_type(client: TestClient):
     """Attempting to upload .exe or .bin should fail with 400 Bad Request."""
     project_id = "test-doc-proj"
@@ -150,3 +162,4 @@ def test_delete_document(client: TestClient):
     # Verify 404 on get
     get_res = client.get(f"/api/projects/{project_id}/documents/{doc_id}")
     assert get_res.status_code == 404
+
