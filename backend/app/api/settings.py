@@ -77,6 +77,7 @@ async def get_current_settings() -> SettingsResponse:
         port=settings.port,
         log_level=settings.log_level,
         theme=settings.theme,
+        editor_font_size=settings.editor_font_size,
     )
 
 

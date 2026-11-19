@@ -22,6 +22,7 @@ class SettingsResponse(BaseModel):
     port: int = Field(description="Server bind port")
     log_level: str = Field(description="Application log level")
     theme: str = Field(description="UI theme preference")
+    editor_font_size: int = Field(default=14, ge=8, le=32, description="Monaco editor font size in pixels")
 
 
 class SettingsUpdateRequest(BaseModel):
@@ -43,6 +44,9 @@ class SettingsUpdateRequest(BaseModel):
     )
     theme: Optional[Literal["light", "dark", "system"]] = Field(
         default=None, description="UI color scheme"
+    )
+    editor_font_size: Optional[int] = Field(
+        default=None, ge=8, le=32, description="Monaco editor font size in pixels"
     )
 
     @field_validator("port")

@@ -203,11 +203,20 @@ async def not_found_handler(request: Request, exc) -> JSONResponse:
 
 @app.exception_handler(422)
 async def validation_error_handler(request: Request, exc) -> JSONResponse:
+    detail_msg = "Request validation failed. Check the request body and parameters."
+    if hasattr(exc, "errors") and callable(exc.errors):
+        try:
+            err_list = exc.errors()
+            if err_list:
+                formatted = [f"{'.'.join(str(loc) for loc in e.get('loc', []))}: {e.get('msg', '')}" for e in err_list]
+                detail_msg = f"Validation failed: {'; '.join(formatted)}"
+        except Exception:
+            pass
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content=ErrorResponse(
             status_code=422,
-            detail="Request validation failed. Check the request body and parameters.",
+            detail=detail_msg,
         ).model_dump(),
     )
 

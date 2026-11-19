@@ -66,28 +66,32 @@ class TestSettingsAPI:
             "port",
             "log_level",
             "theme",
+            "editor_font_size",
         }
         assert expected_fields.issubset(set(data.keys()))
         assert isinstance(data["port"], int)
         assert isinstance(data["temperature"], (int, float))
+        assert isinstance(data["editor_font_size"], int)
 
     def test_put_settings_non_model_field(self, client: TestClient):
-        """Updating temperature should not require a model reload."""
-        payload = {"temperature": 0.45, "iteration_limit": 8}
+        """Updating temperature to 0.5 should update settings.json without model reload."""
+        payload = {"temperature": 0.5, "iteration_limit": 8, "editor_font_size": 16}
         response = client.put("/api/settings", json=payload)
         assert response.status_code == 200
         data = response.json()
 
         assert data["model_reload_required"] is False
         assert data["model_reload_status"] == "not_required"
-        assert data["settings"]["temperature"] == 0.45
+        assert data["settings"]["temperature"] == 0.5
         assert data["settings"]["iteration_limit"] == 8
+        assert data["settings"]["editor_font_size"] == 16
 
         # Verify persisted to disk
         with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
             disk_data = json.load(f)
-        assert disk_data["temperature"] == 0.45
+        assert disk_data["temperature"] == 0.5
         assert disk_data["iteration_limit"] == 8
+        assert disk_data["editor_font_size"] == 16
 
     def test_put_settings_empty_update(self, client: TestClient):
         """Empty payload should succeed and do nothing."""
@@ -135,4 +139,12 @@ class TestSettingsAPI:
         response = client.put("/api/settings", json={"theme": "light"})
         assert response.status_code == 200
         assert response.json()["settings"]["theme"] == "light"
+
+    def test_put_settings_invalid_editor_font_size(self, client: TestClient):
+        """Editor font size outside 8-32 should fail validation."""
+        response = client.put("/api/settings", json={"editor_font_size": 4})
+        assert response.status_code == 422
+
+        response2 = client.put("/api/settings", json={"editor_font_size": 48})
+        assert response2.status_code == 422
 

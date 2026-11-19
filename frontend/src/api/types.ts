@@ -14,6 +14,7 @@ export interface Settings {
   port: number;
   log_level: "debug" | "info" | "warning" | "error" | "critical" | string;
   theme: ThemeMode;
+  editor_font_size: number;
 }
 
 export interface SettingsUpdateResponse {

@@ -81,6 +81,11 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
       if (isNaN(to) || to < 5 || to > 600) {
         err = "Test timeout must be between 5s and 600s";
       }
+    } else if (field === "editor_font_size") {
+      const fs = Number(value);
+      if (isNaN(fs) || fs < 8 || fs > 32) {
+        err = "Editor font size must be between 8px and 32px";
+      }
     }
 
     setErrors((prev) => {
@@ -290,7 +295,7 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
           </h3>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
             <label className="block text-xs font-medium text-[#1B2430] dark:text-[#E6EAF0] mb-1">
               Host
@@ -314,6 +319,23 @@ export const SettingsForm: React.FC<SettingsFormProps> = ({
               className="w-full px-3 py-2 bg-white dark:bg-[#14181F] border border-[#D5DBE3] dark:border-[#2D3541] rounded-lg text-xs font-mono text-[#1B2430] dark:text-[#E6EAF0] outline-none"
             />
             {errors.port && <span className="text-[10px] text-red-500">{errors.port}</span>}
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-[#1B2430] dark:text-[#E6EAF0] mb-1">
+              Editor Font Size (px)
+            </label>
+            <input
+              type="number"
+              min="8"
+              max="32"
+              value={formData.editor_font_size || 14}
+              onChange={(e) => handleChange("editor_font_size", parseInt(e.target.value, 10))}
+              className="w-full px-3 py-2 bg-white dark:bg-[#14181F] border border-[#D5DBE3] dark:border-[#2D3541] rounded-lg text-xs font-mono text-[#1B2430] dark:text-[#E6EAF0] outline-none"
+            />
+            {errors.editor_font_size && (
+              <span className="text-[10px] text-red-500">{errors.editor_font_size}</span>
+            )}
           </div>
 
           <div>
