@@ -239,9 +239,11 @@ async def internal_error_handler(request: Request, exc) -> JSONResponse:
 
 from backend.app.api.health import router as health_router  # noqa: E402
 from backend.app.api.settings import router as settings_router  # noqa: E402
+from backend.app.api.sse import router as sse_router  # noqa: E402
 
 app.include_router(health_router)
 app.include_router(settings_router)
+app.include_router(sse_router)
 
 # Future routers will be added here (projects, files, settings, runs …)
 
