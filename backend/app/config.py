@@ -62,6 +62,7 @@ class OjasSettings(BaseSettings):
     port: int = 8000
     log_level: str = "info"
     theme: str = "dark"
+    editor_font_size: int = 14
 
     @classmethod
     def settings_customise_sources(
@@ -84,6 +85,13 @@ class OjasSettings(BaseSettings):
     def validate_port_range(cls, v: int) -> int:
         if not (1024 <= v <= 65535):
             raise ValueError(f"Port must be between 1024 and 65535, got {v}")
+        return v
+
+    @field_validator("editor_font_size")
+    @classmethod
+    def validate_editor_font_size(cls, v: int) -> int:
+        if not (8 <= v <= 32):
+            raise ValueError(f"editor_font_size must be between 8 and 32, got {v}")
         return v
 
     @field_validator("model_path")

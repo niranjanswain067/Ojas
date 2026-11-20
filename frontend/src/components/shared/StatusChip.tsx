@@ -20,11 +20,12 @@ export type StatusType =
   | 'attention';
 
 export interface StatusChipProps {
-  status: StatusType;
+  status: StatusType | string;
   label?: string;
   tooltip?: string;
   className?: string;
   showDot?: boolean;
+  size?: 'sm' | 'md';
 }
 
 export const StatusChip: React.FC<StatusChipProps> = ({

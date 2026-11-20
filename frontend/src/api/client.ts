@@ -111,4 +111,3 @@ export function apiPatch<T>(endpoint: string, body?: unknown, params?: Record<st
 export function apiDelete<T>(endpoint: string, params?: Record<string, string | number | boolean | undefined>): Promise<T> {
   return request<T>(endpoint, { method: 'DELETE', params });
 }
-

@@ -41,6 +41,8 @@ export interface SuccessResponse {
 // Settings Schemas
 // ---------------------------------------------------------------------------
 
+export type ThemeMode = 'light' | 'dark' | 'system';
+
 export interface Settings {
   model_path: string;
   n_ctx: number;
@@ -54,10 +56,18 @@ export interface Settings {
   host: string;
   port: number;
   log_level: string;
-  theme: 'light' | 'dark' | 'system';
+  theme: ThemeMode;
+  editor_font_size?: number;
 }
 
 export type SettingsUpdate = Partial<Settings>;
+
+export interface SettingsUpdateResponse {
+  settings: Settings;
+  model_reload_required: boolean;
+  model_reload_status: 'not_required' | 'reloaded' | 'reloading' | 'error';
+  message?: string;
+}
 
 // ---------------------------------------------------------------------------
 // Project Schemas
@@ -121,6 +131,43 @@ export interface WorkspaceFileContent {
   path: string;
   content: string;
   is_binary?: boolean;
+}
+
+export interface FileNode {
+  name: string;
+  path: string;
+  type: 'file' | 'directory';
+  size_bytes: number;
+  is_generated: boolean;
+  pending_approval: boolean;
+  updated_at?: string | null;
+  children?: FileNode[] | null;
+}
+
+export interface FileTreeResponse {
+  tree: FileNode[];
+  root?: FileNode | null;
+}
+
+export interface FileContentResponse {
+  path: string;
+  content: string;
+  size_bytes: number;
+  language: string;
+  is_generated: boolean;
+  pending_approval: boolean;
+  linked_req_ids: string[];
+  updated_at?: string | null;
+}
+
+export interface FileSaveRequest {
+  content: string;
+}
+
+export interface FileSaveResponse {
+  path: string;
+  size_bytes: number;
+  updated_at: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -253,45 +300,3 @@ export interface TraceabilityLink {
   tc_id?: string;
   bug_id?: string;
 }
-
-// ---------------------------------------------------------------------------
-// Workspace File Schemas
-// ---------------------------------------------------------------------------
-
-export interface FileNode {
-  name: string;
-  path: string;
-  type: 'file' | 'directory';
-  size_bytes: number;
-  is_generated: boolean;
-  pending_approval: boolean;
-  updated_at?: string | null;
-  children?: FileNode[] | null;
-}
-
-export interface FileTreeResponse {
-  tree: FileNode[];
-  root?: FileNode | null;
-}
-
-export interface FileContentResponse {
-  path: string;
-  content: string;
-  size_bytes: number;
-  language: string;
-  is_generated: boolean;
-  pending_approval: boolean;
-  linked_req_ids: string[];
-  updated_at?: string | null;
-}
-
-export interface FileSaveRequest {
-  content: string;
-}
-
-export interface FileSaveResponse {
-  path: string;
-  size_bytes: number;
-  updated_at: string;
-}
-

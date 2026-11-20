@@ -73,6 +73,11 @@ export function getStoredTheme(): ThemeMode {
   return 'system';
 }
 
+/** Alias used by integration-testing branch components. */
+export function getInitialTheme(defaultSettingTheme: ThemeMode = 'system'): ThemeMode {
+  return getStoredTheme() !== 'system' ? getStoredTheme() : defaultSettingTheme;
+}
+
 export function applyThemeToDocument(theme: ResolvedTheme): void {
   if (typeof document === 'undefined') return;
 
@@ -81,5 +86,17 @@ export function applyThemeToDocument(theme: ResolvedTheme): void {
     root.classList.add('dark');
   } else {
     root.classList.remove('dark');
+  }
+}
+
+/** Convenience wrapper — resolves 'system' and applies. Used by SettingsPage. */
+export function applyTheme(mode: ThemeMode): void {
+  const resolved: ResolvedTheme =
+    mode === 'system' ? getSystemTheme() : mode;
+  applyThemeToDocument(resolved);
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, mode);
+  } catch {
+    // localStorage may be disabled
   }
 }

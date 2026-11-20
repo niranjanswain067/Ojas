@@ -45,12 +45,27 @@ def get_llm_client():
     return _llm_client
 
 
+def reload_llm_client() -> bool:
+    """Reload the global LLM client with current settings. Returns True if loaded."""
+    global _llm_client
+    try:
+        from backend.app.llm.llama_cpp_client import LlamaCppClient
+        logger.info("Reloading LLM model with current settings...")
+        _llm_client = LlamaCppClient()
+        return _llm_client.is_loaded()
+    except Exception:
+        logger.exception("Unexpected error while reloading LLM model.")
+        _llm_client = None
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Logging setup
 # ---------------------------------------------------------------------------
 
 def _configure_logging(log_level: str) -> None:
     level = log_level.upper()
+    (_PROJECT_ROOT / "logs").mkdir(parents=True, exist_ok=True)
     logging.config.dictConfig(
         {
             "version": 1,
@@ -188,11 +203,23 @@ async def not_found_handler(request: Request, exc) -> JSONResponse:
 
 @app.exception_handler(422)
 async def validation_error_handler(request: Request, exc) -> JSONResponse:
+    detail_msg = "Request validation failed. Check the request body and parameters."
+    if hasattr(exc, "errors") and callable(exc.errors):
+        try:
+            err_list = exc.errors()
+            if err_list:
+                formatted = [
+                    f"{'.'.join(str(loc) for loc in e.get('loc', []))}: {e.get('msg', '')}"
+                    for e in err_list
+                ]
+                detail_msg = f"Validation failed: {'; '.join(formatted)}"
+        except Exception:
+            pass
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content=ErrorResponse(
             status_code=422,
-            detail="Request validation failed. Check the request body and parameters.",
+            detail=detail_msg,
         ).model_dump(),
     )
 
@@ -216,10 +243,16 @@ async def internal_error_handler(request: Request, exc) -> JSONResponse:
 from backend.app.api.health import router as health_router  # noqa: E402
 from backend.app.api.projects import router as projects_router  # noqa: E402
 from backend.app.api.files import router as files_router  # noqa: E402
+from backend.app.api.settings import router as settings_router  # noqa: E402
+from backend.app.api.sse import router as sse_router  # noqa: E402
+from backend.app.api.documents import router as documents_router  # noqa: E402
 
 app.include_router(health_router)
 app.include_router(projects_router)
 app.include_router(files_router)
+app.include_router(settings_router)
+app.include_router(sse_router)
+app.include_router(documents_router)
 
 # ---------------------------------------------------------------------------
 # Serve built frontend (if it exists)
@@ -229,4 +262,3 @@ _frontend_dist = _PROJECT_ROOT / "frontend" / "dist"
 if _frontend_dist.is_dir():
     app.mount("/", StaticFiles(directory=str(_frontend_dist), html=True), name="frontend")
     logger.info("Serving frontend from %s", _frontend_dist)
-
