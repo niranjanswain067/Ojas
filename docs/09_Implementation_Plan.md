@@ -965,7 +965,7 @@ Register router in `main.py`.
 
 ## Phase 14: Chunking, Embedding & Indexing
 
-> 📅 **Start:** 13 Nov 2026 &nbsp;|&nbsp; **Deadline:** 14 Nov 2026 &nbsp;|&nbsp; **Duration:** 2 days &nbsp;|&nbsp; **Status:** 🔲 Pending
+> 📅 **Start:** 13 Nov 2026 &nbsp;|&nbsp; **Deadline:** 14 Nov 2026 &nbsp;|&nbsp; **Duration:** 2 days &nbsp;|&nbsp; **Status:** ✅ Complete
 
 **Goal:** Documents are chunked into requirements, embedded, and indexed for semantic + keyword search.
 

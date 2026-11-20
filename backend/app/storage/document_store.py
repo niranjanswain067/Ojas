@@ -24,7 +24,11 @@ def ensure_project(project_id: str, name: Optional[str] = None) -> None:
     row = fetch_one("SELECT id FROM projects WHERE id = ?", (project_id,))
     if row is None:
         now = _now_iso()
-        project_name = name or f"Project-{project_id[:8]}"
+        project_name = name or f"Project-{project_id}"
+        # Ensure project name is unique
+        existing_name = fetch_one("SELECT id FROM projects WHERE name = ?", (project_name,))
+        if existing_name is not None and existing_name["id"] != project_id:
+            project_name = f"{project_name}-{uuid.uuid4().hex[:6]}"
         try:
             execute_query(
                 """

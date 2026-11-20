@@ -246,6 +246,7 @@ from backend.app.api.files import router as files_router  # noqa: E402
 from backend.app.api.settings import router as settings_router  # noqa: E402
 from backend.app.api.sse import router as sse_router  # noqa: E402
 from backend.app.api.documents import router as documents_router  # noqa: E402
+from backend.app.api.requirements import router as requirements_router  # noqa: E402
 
 app.include_router(health_router)
 app.include_router(projects_router)
@@ -253,6 +254,7 @@ app.include_router(files_router)
 app.include_router(settings_router)
 app.include_router(sse_router)
 app.include_router(documents_router)
+app.include_router(requirements_router)
 
 # ---------------------------------------------------------------------------
 # Serve built frontend (if it exists)

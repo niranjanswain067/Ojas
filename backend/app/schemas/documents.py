@@ -1,8 +1,8 @@
 """
-Pydantic schemas for requirement documents.
+Pydantic schemas for requirement documents and chunks.
 """
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -55,3 +55,36 @@ class DocumentDetailResponse(BaseModel):
 
     document: DocumentResponse
     raw_text: Optional[str] = None
+
+
+class ChunkResponse(BaseModel):
+    """Represents an indexed requirement chunk."""
+
+    id: str
+    document_id: str
+    project_id: str
+    req_id: str
+    chunk_type: str = "requirement"
+    heading: str = ""
+    content: str
+    token_count: Optional[int] = None
+    chunk_index: int
+    created_at: str
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class RequirementListResponse(BaseModel):
+    """List of requirement chunks belonging to a project."""
+
+    requirements: List[ChunkResponse]
+    total: int
+
+
+class IndexTriggerResponse(BaseModel):
+    """Response from triggering an index operation."""
+
+    status: str = Field(description="Status of the indexing trigger: queued, completed, already_indexed, error")
+    message: str
+    task_id: Optional[str] = None
+    chunks_indexed: Optional[int] = None
+    documents_processed: Optional[int] = None

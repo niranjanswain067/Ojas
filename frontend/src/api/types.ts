@@ -190,10 +190,29 @@ export interface Chunk {
   document_id: string;
   project_id: string;
   req_id?: string;
+  chunk_type?: string;
+  heading?: string;
   title?: string;
   content: string;
   chunk_index: number;
-  token_count: number;
+  token_count?: number;
+  created_at?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export type RequirementChunk = Chunk;
+
+export interface RequirementListResponse {
+  requirements: Chunk[];
+  total: number;
+}
+
+export interface IndexTriggerResponse {
+  status: 'queued' | 'completed' | 'already_indexed' | 'error' | string;
+  message: string;
+  task_id?: string | null;
+  chunks_indexed?: number | null;
+  documents_processed?: number | null;
 }
 
 // ---------------------------------------------------------------------------
