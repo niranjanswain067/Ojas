@@ -215,6 +215,23 @@ export interface IndexTriggerResponse {
   documents_processed?: number | null;
 }
 
+export interface SearchResultItem {
+  chunk_id: string;
+  req_id: string;
+  heading: string;
+  content: string;
+  score: number;
+  source: 'semantic' | 'keyword' | 'both' | string;
+  document_id?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface SearchResponse {
+  query: string;
+  total_results: number;
+  results: SearchResultItem[];
+}
+
 // ---------------------------------------------------------------------------
 // Run & Orchestrator Schemas
 // ---------------------------------------------------------------------------
