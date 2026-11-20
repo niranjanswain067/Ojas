@@ -8,7 +8,7 @@ import {
   Clock,
   Layers,
 } from "lucide-react";
-import { HealthResponse } from "../../api/types";
+import type { HealthResponse } from "../../api/types";
 import { StatusChip } from "../shared/StatusChip";
 
 interface HealthCardProps {

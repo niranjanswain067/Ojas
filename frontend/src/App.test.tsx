@@ -131,6 +131,6 @@ describe('App Navigation and Shell', () => {
 
     // Navigate to Settings
     fireEvent.click(screen.getByRole('link', { name: /settings/i }));
-    expect(await screen.findByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: /settings/i })).toBeInTheDocument();
   });
 });

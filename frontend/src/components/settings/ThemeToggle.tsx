@@ -1,6 +1,6 @@
 import React from "react";
 import { Sun, Moon, Laptop } from "lucide-react";
-import { ThemeMode } from "../../api/types";
+import type { ThemeMode } from "../../api/types";
 import { applyTheme } from "../../app/theme";
 
 interface ThemeToggleProps {

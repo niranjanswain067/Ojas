@@ -1,5 +1,5 @@
 import { apiGet, apiPut } from "./client";
-import { HealthResponse, Settings, SettingsUpdateResponse } from "./types";
+import type { HealthResponse, Settings, SettingsUpdateResponse } from "./types";
 
 /**
  * Fetch the current runtime settings from backend.

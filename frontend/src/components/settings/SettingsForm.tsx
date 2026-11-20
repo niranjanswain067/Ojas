@@ -8,7 +8,7 @@ import {
   Server,
   AlertCircle,
 } from "lucide-react";
-import { Settings } from "../../api/types";
+import type { Settings } from "../../api/types";
 
 interface SettingsFormProps {
   initialSettings: Settings;

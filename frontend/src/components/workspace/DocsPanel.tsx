@@ -10,8 +10,8 @@ import {
   X,
   Layers,
 } from "lucide-react";
+import type { DocumentItem } from "../../api/documents";
 import {
-  DocumentItem,
   listDocuments,
   uploadDocuments,
   deleteDocument,
