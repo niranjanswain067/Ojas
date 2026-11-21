@@ -237,7 +237,7 @@ export const WorkspacePage: React.FC = () => {
 
           {/* Right Panel: Agent Execution Run Panel */}
           <Panel defaultSize={25} minSize={18} maxSize={35}>
-            <RunPanel />
+            <RunPanel projectId={projectId} />
           </Panel>
         </PanelGroup>
       </div>
