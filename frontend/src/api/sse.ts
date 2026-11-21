@@ -45,6 +45,7 @@ export function subscribeRunEvents(
     "test",
     "bug",
     "iteration",
+    "plan_ready",
     "done",
     "error",
   ];

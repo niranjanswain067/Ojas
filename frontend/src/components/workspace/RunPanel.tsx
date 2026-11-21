@@ -1,45 +1,187 @@
 /**
  * RunPanel component for Ojas Workspace.
- * Right panel containing prompt input, agent execution triggers (Plan, Develop, Test, Fix loop),
- * execution status block, and visual stage stepper.
+ * Right panel providing task prompt input, agent execution triggers (Plan, Develop, Test, Fix loop),
+ * active run status display, StageStepper, cooperative stop button, and PlanReview modal.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Play, FileText, Bug, Wrench, Square, Sparkles } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+
+import { useRunStore } from '../../store/runStore';
+import { startRun, approvePlan } from '../../api/runs';
+import { subscribeRunEvents, cancelRun } from '../../api/sse';
+import { StageStepper } from './StageStepper';
+import { PlanReview } from './PlanReview';
 
 interface RunPanelProps {
-  onRunPlan?: (prompt: string) => void;
-  onRunDevelop?: (prompt: string) => void;
-  onRunTest?: () => void;
-  onRunFixLoop?: () => void;
-  onStopRun?: () => void;
-  isRunActive?: boolean;
+  projectId?: string;
 }
 
-const STAGES = [
-  'Index',
-  'Plan',
-  'Generate',
-  'Check',
-  'Test',
-  'Fix',
-  'Done',
-];
+export const RunPanel: React.FC<RunPanelProps> = ({ projectId = 'default-project' }) => {
+  const queryClient = useQueryClient();
 
-export const RunPanel: React.FC<RunPanelProps> = ({
-  onRunPlan,
-  onRunDevelop,
-  onRunTest,
-  onRunFixLoop,
-  onStopRun,
-  isRunActive = false,
-}) => {
   const [prompt, setPrompt] = useState('');
-  const [currentStageIndex] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
+
+  const {
+    activeRunId,
+    runType,
+    status,
+    currentStage,
+    currentStageIndex,
+    activeFile,
+    iteration,
+    iterationLimit,
+    planText,
+    isPlanReviewOpen,
+    startRun: storeStartRun,
+    setStage,
+    setActiveFile,
+    setPlan,
+    setPlanReviewOpen,
+    addLog,
+    addGeneratedFile,
+    completeRun,
+  } = useRunStore();
+
+  const isRunActive = status === 'running' || status === 'queued';
+
+  // Cleanup SSE on unmount
+  useEffect(() => {
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+    };
+  }, []);
+
+  // Connect to live SSE progress stream for a run
+  const attachSseListener = (runId: string) => {
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+    }
+
+    const unsub = subscribeRunEvents(runId, {
+      onEvent: (event) => {
+        const { event_type, data } = event;
+
+        if (event_type === 'stage') {
+          if (data?.stage) {
+            setStage(data.stage);
+            addLog(`Stage [${data.stage}]: ${data.message || data.status || ''}`, 'info');
+          }
+        } else if (event_type === 'file') {
+          if (data?.path) {
+            setActiveFile(data.path);
+            if (data.action === 'created') {
+              addGeneratedFile(data.path);
+              addLog(`Created file: ${data.path} (${data.status || 'ast_ok'})`, 'info');
+            } else {
+              addLog(`Generating file: ${data.path}...`, 'info');
+            }
+          }
+        } else if (event_type === 'plan_ready') {
+          if (data?.plan_text) {
+            setPlan(data.plan_text);
+            addLog('Development plan generated and ready for review.', 'info');
+          }
+        } else if (event_type === 'error') {
+          addLog(data?.message || 'Execution error encountered', 'error');
+        } else if (event_type === 'done') {
+          completeRun(data?.status || 'completed');
+          addLog(`Execution completed: ${data?.status || 'done'}`, 'info');
+          // Invalidate workspace files and runs query cache
+          queryClient.invalidateQueries({ queryKey: ['files', projectId] });
+          queryClient.invalidateQueries({ queryKey: ['runs', projectId] });
+        }
+      },
+      onError: (err) => {
+        addLog(`SSE connection error: ${err}`, 'warn');
+      },
+    });
+
+    unsubscribeRef.current = unsub;
+  };
+
+  // Trigger Plan run
+  const handleRunPlan = async () => {
+    if (!prompt.trim() || isRunActive || isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await startRun(projectId, 'plan', prompt);
+      storeStartRun(res.run_id, 'plan', prompt);
+      attachSseListener(res.run_id);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      addLog(`Failed to start planning run: ${msg}`, 'error');
+      completeRun('failed', msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Trigger Develop run
+  const handleRunDevelop = async () => {
+    if (!prompt.trim() || isRunActive || isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await startRun(projectId, 'develop', prompt);
+      storeStartRun(res.run_id, 'develop', prompt);
+      attachSseListener(res.run_id);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      addLog(`Failed to start development run: ${msg}`, 'error');
+      completeRun('failed', msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Trigger Cooperative Run Cancellation
+  const handleStopRun = async () => {
+    if (!activeRunId) return;
+
+    try {
+      addLog('Requesting run cancellation...', 'warn');
+      await cancelRun(activeRunId);
+      completeRun('cancelled', 'User stopped run');
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      addLog(`Failed to cancel run: ${msg}`, 'error');
+    }
+  };
+
+  // Handle plan approval from modal
+  const handleApprovePlan = async (editedPlan: string, proceed: boolean) => {
+    setIsSubmitting(true);
+    try {
+      const res = await approvePlan(projectId, editedPlan, proceed);
+      setPlanReviewOpen(false);
+
+      if (proceed && res.run_id) {
+        storeStartRun(res.run_id, 'develop', 'Approved plan execution');
+        attachSseListener(res.run_id);
+      } else {
+        addLog('Plan approved and saved.', 'info');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      addLog(`Failed to approve plan: ${msg}`, 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <aside className="flex flex-col h-full bg-neutral-900 border-l border-neutral-800 text-neutral-200 p-3 overflow-y-auto select-none">
-      {/* Panel Title */}
+      {/* Panel Header */}
       <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
         <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-neutral-300">
           <Sparkles className="w-3.5 h-3.5 text-sky-400" />
@@ -51,11 +193,11 @@ export const RunPanel: React.FC<RunPanelProps> = ({
             Running
           </span>
         ) : (
-          <span className="text-[11px] text-neutral-500">Idle</span>
+          <span className="text-[11px] text-neutral-500 font-medium">Idle</span>
         )}
       </div>
 
-      {/* Prompt Input Box */}
+      {/* Task Prompt Input */}
       <div className="mt-3">
         <label htmlFor="prompt-input" className="block text-xs font-medium text-neutral-400 mb-1">
           Task Prompt
@@ -65,8 +207,8 @@ export const RunPanel: React.FC<RunPanelProps> = ({
           rows={4}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Describe what to build or modify (e.g. Build a library book checkout service with tests)..."
-          disabled={isRunActive}
+          placeholder="Describe what to build or modify (e.g. Build a calculator service with arithmetic operations)..."
+          disabled={isRunActive || isSubmitting}
           className="w-full p-2.5 text-xs bg-neutral-950 border border-neutral-800 rounded-md text-white placeholder-neutral-500 focus:outline-none focus:border-sky-500 resize-none disabled:opacity-50"
         />
       </div>
@@ -75,8 +217,8 @@ export const RunPanel: React.FC<RunPanelProps> = ({
       <div className="mt-3 grid grid-cols-2 gap-2">
         <button
           type="button"
-          onClick={() => onRunPlan && onRunPlan(prompt)}
-          disabled={isRunActive || !prompt.trim()}
+          onClick={handleRunPlan}
+          disabled={isRunActive || isSubmitting || !prompt.trim()}
           className="flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-white rounded transition-colors disabled:opacity-40"
         >
           <FileText className="w-3.5 h-3.5 text-amber-400" />
@@ -85,31 +227,31 @@ export const RunPanel: React.FC<RunPanelProps> = ({
 
         <button
           type="button"
-          onClick={() => onRunDevelop && onRunDevelop(prompt)}
-          disabled={isRunActive || !prompt.trim()}
-          className="flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-medium bg-sky-600 hover:bg-sky-500 text-white rounded transition-colors disabled:opacity-40"
+          onClick={handleRunDevelop}
+          disabled={isRunActive || isSubmitting || !prompt.trim()}
+          className="flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-medium bg-sky-600 hover:bg-sky-500 text-white rounded transition-colors disabled:opacity-40 shadow-sm"
         >
-          <Play className="w-3.5 h-3.5 text-white" />
+          <Play className="w-3.5 h-3.5 text-white fill-current" />
           <span>Develop</span>
         </button>
 
         <button
           type="button"
-          onClick={() => onRunTest && onRunTest()}
-          disabled={isRunActive}
-          className="flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-white rounded transition-colors disabled:opacity-40"
+          disabled
+          title="Testing Agent will be enabled in Phase 18"
+          className="flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-medium bg-neutral-800 text-neutral-500 rounded cursor-not-allowed opacity-40"
         >
-          <Bug className="w-3.5 h-3.5 text-emerald-400" />
+          <Bug className="w-3.5 h-3.5 text-emerald-600" />
           <span>Test</span>
         </button>
 
         <button
           type="button"
-          onClick={() => onRunFixLoop && onRunFixLoop()}
-          disabled={isRunActive}
-          className="flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-white rounded transition-colors disabled:opacity-40"
+          disabled
+          title="Fix Loop will be enabled in Phase 18"
+          className="flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-medium bg-neutral-800 text-neutral-500 rounded cursor-not-allowed opacity-40"
         >
-          <Wrench className="w-3.5 h-3.5 text-rose-400" />
+          <Wrench className="w-3.5 h-3.5 text-rose-600" />
           <span>Fix Loop</span>
         </button>
       </div>
@@ -118,23 +260,27 @@ export const RunPanel: React.FC<RunPanelProps> = ({
       <div className="mt-4 p-3 bg-neutral-950/80 rounded-lg border border-neutral-800 text-xs">
         <div className="flex items-center justify-between mb-2">
           <span className="text-neutral-400 font-medium">Status</span>
-          <span className="text-neutral-200 font-semibold">
-            {isRunActive ? 'Generating Code' : 'Idle'}
+          <span className="text-neutral-200 font-semibold capitalize">
+            {isRunActive ? `${runType || 'Task'} (${currentStage})` : status}
           </span>
         </div>
         <div className="flex items-center justify-between text-neutral-400 text-[11px]">
           <span>Iteration</span>
-          <span className="font-mono text-neutral-300">0 / 5</span>
+          <span className="font-mono text-neutral-300">
+            {iteration} / {iterationLimit}
+          </span>
         </div>
         <div className="flex items-center justify-between text-neutral-400 text-[11px] mt-1">
           <span>Active File</span>
-          <span className="font-mono text-neutral-300">—</span>
+          <span className="font-mono text-neutral-300 truncate max-w-[140px]" title={activeFile || 'None'}>
+            {activeFile || '—'}
+          </span>
         </div>
 
         {isRunActive && (
           <button
             type="button"
-            onClick={onStopRun}
+            onClick={handleStopRun}
             className="w-full mt-3 flex items-center justify-center gap-1.5 py-1 text-xs font-medium text-rose-300 bg-rose-950/60 border border-rose-800/80 hover:bg-rose-900/60 rounded transition-colors"
           >
             <Square className="w-3 h-3 fill-current" />
@@ -143,41 +289,19 @@ export const RunPanel: React.FC<RunPanelProps> = ({
         )}
       </div>
 
-      {/* Stage Stepper */}
+      {/* Visual Stage Stepper */}
       <div className="mt-4">
-        <span className="block text-[11px] font-semibold uppercase tracking-wider text-neutral-400 mb-2">
-          Pipeline Stages
-        </span>
-        <div className="flex flex-col gap-1.5">
-          {STAGES.map((stage, idx) => {
-            const isCompleted = idx < currentStageIndex;
-            const isCurrent = idx === currentStageIndex && isRunActive;
-            return (
-              <div
-                key={stage}
-                className={`flex items-center gap-2 px-2.5 py-1 rounded text-xs transition-colors ${
-                  isCurrent
-                    ? 'bg-sky-950/80 text-sky-300 border border-sky-800/60 font-medium'
-                    : isCompleted
-                      ? 'text-emerald-400'
-                      : 'text-neutral-400'
-                }`}
-              >
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    isCurrent
-                      ? 'bg-sky-400 animate-pulse'
-                      : isCompleted
-                        ? 'bg-emerald-400'
-                        : 'bg-neutral-600'
-                  }`}
-                />
-                <span>{stage}</span>
-              </div>
-            );
-          })}
-        </div>
+        <StageStepper currentStageIndex={currentStageIndex} isRunActive={isRunActive} />
       </div>
+
+      {/* Plan Review Modal */}
+      <PlanReview
+        isOpen={isPlanReviewOpen}
+        planText={planText || ''}
+        onApprove={handleApprovePlan}
+        onClose={() => setPlanReviewOpen(false)}
+        isLoading={isSubmitting}
+      />
     </aside>
   );
 };

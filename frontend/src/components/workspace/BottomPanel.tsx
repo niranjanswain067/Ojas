@@ -6,6 +6,8 @@
 import React from 'react';
 import { Terminal, CheckCircle2, AlertTriangle, Cpu, ChevronUp, ChevronDown } from 'lucide-react';
 import type { BottomPanelTab } from '../../store/uiStore';
+import { useRunStore } from '../../store/runStore';
+import { LogView } from './LogView';
 
 interface BottomPanelProps {
   currentTab: BottomPanelTab;
@@ -20,10 +22,10 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   onTabChange,
   isOpen,
   onToggleOpen,
-  logs = [
-    { timestamp: '10:00:00', message: 'Workspace ready. Offline model initialized.', level: 'info' },
-  ],
+  logs: propLogs,
 }) => {
+  const storeLogs = useRunStore((s) => s.logs);
+  const logs = propLogs || storeLogs;
   return (
     <div className="flex flex-col h-full bg-neutral-950 border-t border-neutral-800 text-neutral-300 overflow-hidden select-none">
       {/* Panel Tab Header */}
@@ -95,26 +97,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
       {/* Panel Content (Visible when open) */}
       {isOpen && (
         <div className="flex-1 overflow-y-auto p-2.5 font-mono text-xs">
-          {currentTab === 'logs' && (
-            <div className="space-y-1">
-              {logs.map((log, i) => (
-                <div key={i} className="flex items-start gap-2 text-neutral-300">
-                  <span className="text-neutral-500 select-none">{log.timestamp}</span>
-                  <span
-                    className={
-                      log.level === 'error'
-                        ? 'text-rose-400'
-                        : log.level === 'warn'
-                          ? 'text-amber-400'
-                          : 'text-neutral-300'
-                    }
-                  >
-                    {log.message}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+          {currentTab === 'logs' && <LogView logs={logs} />}
 
           {currentTab === 'tests' && (
             <div className="text-center py-6 text-neutral-400">
