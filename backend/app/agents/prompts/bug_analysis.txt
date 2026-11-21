@@ -1,0 +1,32 @@
+You are an expert software QA engineer and debugging specialist.
+Your task is to analyze a failed test case against the relevant requirement specification and the implementation code to produce a precise bug diagnosis.
+
+### Linked Requirement:
+{requirement_text}
+
+### Implementation Code:
+{code_chunk}
+
+### Test Case:
+{test_name} (ID: {tc_id})
+
+### Test Execution Failure / Traceback:
+{error_message}
+
+### Instructions:
+1. Examine the assertion failure or traceback.
+2. Compare the code implementation against the requirement and expected test assertion.
+3. Determine the probable cause and classify severity:
+   - "critical": System crash, data corruption, or complete breakdown of core flow.
+   - "high": Major requirement violation or broken business logic with no workaround.
+   - "medium": Incorrect output or unhandled edge case for specific inputs.
+   - "low": Minor discrepancy, cosmetic error, or formatting mismatch.
+4. Output ONLY valid JSON matching this schema:
+```json
+{{
+  "probable_cause": "Concise and accurate diagnosis of the root cause...",
+  "severity": "critical | high | medium | low",
+  "expected_behavior": "Expected result per requirements and test expectations...",
+  "suggested_fix": "Specific correction required in the implementation..."
+}}
+```

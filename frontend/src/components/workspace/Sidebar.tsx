@@ -8,26 +8,31 @@ import { FileCode2, FileText, FlaskConical, UploadCloud } from 'lucide-react';
 import type { FileNode } from '../../api/types';
 import type { SidebarTab } from '../../store/uiStore';
 import { FileTree } from './FileTree';
+import { TestsPanel } from './TestsPanel';
 
 interface SidebarProps {
+  projectId?: string;
   currentTab: SidebarTab;
   onTabChange: (tab: SidebarTab) => void;
   fileTree: FileNode[];
   activeFilePath?: string | null;
   isLoadingFiles?: boolean;
   onSelectFile: (node: FileNode) => void;
+  onSelectTest?: (filePath: string, functionName?: string | null) => void;
   onCreateFile?: (path: string) => void;
   onDeleteFile?: (path: string) => void;
   onRefreshFiles?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
+  projectId = 'default-project',
   currentTab,
   onTabChange,
   fileTree,
   activeFilePath,
   isLoadingFiles = false,
   onSelectFile,
+  onSelectTest,
   onCreateFile,
   onDeleteFile,
   onRefreshFiles,
@@ -111,20 +116,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {currentTab === 'tests' && (
-          <div className="flex flex-col h-full p-4 overflow-y-auto">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
-                Test Cases
-              </h4>
-            </div>
-            <div className="bg-neutral-800/40 rounded-lg p-4 text-center border border-neutral-800">
-              <FlaskConical className="w-7 h-7 text-emerald-400/80 mx-auto mb-2" />
-              <p className="text-xs text-neutral-300 font-medium">No test cases recorded</p>
-              <p className="text-[11px] text-neutral-400 mt-1">
-                Test results and pytest fixtures will populate here after a test run.
-              </p>
-            </div>
-          </div>
+          <TestsPanel
+            projectId={projectId}
+            onSelectTest={onSelectTest}
+          />
         )}
       </div>
     </aside>
