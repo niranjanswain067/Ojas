@@ -81,6 +81,10 @@ def start_project_run(project_id: str, req: RunCreateRequest) -> RunResponse:
         try:
             if req.run_type == "plan":
                 orchestrator.run_plan(project_id, prompt=req.prompt, run_id=run_id)
+            elif req.run_type == "test":
+                orchestrator.run_test(project_id, run_id=run_id)
+            elif req.run_type == "fix_loop":
+                orchestrator.run_fix_loop(project_id, run_id=run_id)
             else:
                 orchestrator.run_develop(
                     project_id,

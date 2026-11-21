@@ -8,21 +8,29 @@ import { Terminal, CheckCircle2, AlertTriangle, Cpu, ChevronUp, ChevronDown } fr
 import type { BottomPanelTab } from '../../store/uiStore';
 import { useRunStore } from '../../store/runStore';
 import { LogView } from './LogView';
+import { TestResultsTable } from './TestResultsTable';
+import { BugList } from './BugList';
 
 interface BottomPanelProps {
+  projectId?: string;
   currentTab: BottomPanelTab;
   onTabChange: (tab: BottomPanelTab) => void;
   isOpen: boolean;
   onToggleOpen: () => void;
   logs?: Array<{ timestamp: string; message: string; level?: 'info' | 'warn' | 'error' }>;
+  onSelectTest?: (testName: string) => void;
+  onSelectBug?: (filePath: string, functionName?: string | null) => void;
 }
 
 export const BottomPanel: React.FC<BottomPanelProps> = ({
+  projectId = 'default-project',
   currentTab,
   onTabChange,
   isOpen,
   onToggleOpen,
   logs: propLogs,
+  onSelectTest,
+  onSelectBug,
 }) => {
   const storeLogs = useRunStore((s) => s.logs);
   const logs = propLogs || storeLogs;
@@ -100,20 +108,17 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
           {currentTab === 'logs' && <LogView logs={logs} />}
 
           {currentTab === 'tests' && (
-            <div className="text-center py-6 text-neutral-400">
-              <CheckCircle2 className="w-8 h-8 text-neutral-600 mx-auto mb-2" />
-              <p>No tests have been executed yet.</p>
-              <p className="text-[11px] text-neutral-400 mt-0.5">
-                Click "Test" in the right panel to execute pytest test suites.
-              </p>
-            </div>
+            <TestResultsTable
+              projectId={projectId}
+              onSelectTest={onSelectTest}
+            />
           )}
 
           {currentTab === 'bugs' && (
-            <div className="text-center py-6 text-neutral-400">
-              <AlertTriangle className="w-8 h-8 text-neutral-600 mx-auto mb-2" />
-              <p>No bugs currently reported.</p>
-            </div>
+            <BugList
+              projectId={projectId}
+              onSelectBug={onSelectBug}
+            />
           )}
 
           {currentTab === 'model' && (

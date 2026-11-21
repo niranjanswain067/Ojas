@@ -9,10 +9,13 @@ import { Play, FileText, Bug, Wrench, Square, Sparkles } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useRunStore } from '../../store/runStore';
+import { useUIStore } from '../../store/uiStore';
 import { startRun, approvePlan } from '../../api/runs';
 import { subscribeRunEvents, cancelRun } from '../../api/sse';
 import { StageStepper } from './StageStepper';
 import { PlanReview } from './PlanReview';
+import { IterationStatus } from './IterationStatus';
+import { EscalationBanner } from './EscalationBanner';
 
 interface RunPanelProps {
   projectId?: string;
@@ -36,6 +39,8 @@ export const RunPanel: React.FC<RunPanelProps> = ({ projectId = 'default-project
     iterationLimit,
     planText,
     isPlanReviewOpen,
+    failingTestsCount,
+    fixLoopStopReason,
     startRun: storeStartRun,
     setStage,
     setActiveFile,
@@ -43,8 +48,14 @@ export const RunPanel: React.FC<RunPanelProps> = ({ projectId = 'default-project
     setPlanReviewOpen,
     addLog,
     addGeneratedFile,
+    addTestResult,
+    addBugReport,
+    setIteration,
+    setFixLoopStopReason,
     completeRun,
   } = useRunStore();
+
+  const { setBottomPanelTab } = useUIStore();
 
   const isRunActive = status === 'running' || status === 'queued';
 
@@ -82,6 +93,21 @@ export const RunPanel: React.FC<RunPanelProps> = ({ projectId = 'default-project
               addLog(`Generating file: ${data.path}...`, 'info');
             }
           }
+        } else if (event_type === 'test') {
+          if (data) {
+            addTestResult(data);
+            addLog(`Test [${data.tc_id || ''}]: ${data.name || ''} → ${data.result || ''}`, data.result === 'passed' ? 'info' : 'warn');
+          }
+        } else if (event_type === 'bug') {
+          if (data) {
+            addBugReport(data);
+            addLog(`Bug recorded [${data.bug_id}]: ${data.probable_cause || data.actual_result || ''}`, 'warn');
+          }
+        } else if (event_type === 'iteration') {
+          if (data?.iteration) {
+            setIteration(data.iteration);
+            addLog(`Fix loop iteration: ${data.iteration} / ${data.limit || 5}`, 'info');
+          }
         } else if (event_type === 'plan_ready') {
           if (data?.plan_text) {
             setPlan(data.plan_text);
@@ -90,11 +116,14 @@ export const RunPanel: React.FC<RunPanelProps> = ({ projectId = 'default-project
         } else if (event_type === 'error') {
           addLog(data?.message || 'Execution error encountered', 'error');
         } else if (event_type === 'done') {
-          completeRun(data?.status || 'completed');
-          addLog(`Execution completed: ${data?.status || 'done'}`, 'info');
-          // Invalidate workspace files and runs query cache
+          completeRun(data?.status || 'completed', undefined, data?.stop_reason);
+          addLog(`Execution completed: ${data?.status || 'done'}${data?.stop_reason ? ` (${data.stop_reason})` : ''}`, 'info');
+          // Invalidate workspace files, runs, tests, and bugs query cache
           queryClient.invalidateQueries({ queryKey: ['files', projectId] });
           queryClient.invalidateQueries({ queryKey: ['runs', projectId] });
+          queryClient.invalidateQueries({ queryKey: ['tests', projectId] });
+          queryClient.invalidateQueries({ queryKey: ['test-results', projectId] });
+          queryClient.invalidateQueries({ queryKey: ['bugs', projectId] });
         }
       },
       onError: (err) => {
@@ -135,6 +164,42 @@ export const RunPanel: React.FC<RunPanelProps> = ({ projectId = 'default-project
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       addLog(`Failed to start development run: ${msg}`, 'error');
+      completeRun('failed', msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Trigger Test run
+  const handleRunTest = async () => {
+    if (isRunActive || isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await startRun(projectId, 'test', prompt || 'Run test suite');
+      storeStartRun(res.run_id, 'test', prompt || 'Run test suite');
+      attachSseListener(res.run_id);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      addLog(`Failed to start test execution run: ${msg}`, 'error');
+      completeRun('failed', msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Trigger Fix Loop run
+  const handleRunFixLoop = async () => {
+    if (isRunActive || isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await startRun(projectId, 'fix_loop', prompt || 'Automated repair fix loop');
+      storeStartRun(res.run_id, 'fix_loop', prompt || 'Automated repair fix loop');
+      attachSseListener(res.run_id);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      addLog(`Failed to start fix loop run: ${msg}`, 'error');
       completeRun('failed', msg);
     } finally {
       setIsSubmitting(false);
@@ -237,21 +302,21 @@ export const RunPanel: React.FC<RunPanelProps> = ({ projectId = 'default-project
 
         <button
           type="button"
-          disabled
-          title="Testing Agent will be enabled in Phase 18"
-          className="flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-medium bg-neutral-800 text-neutral-500 rounded cursor-not-allowed opacity-40"
+          onClick={handleRunTest}
+          disabled={isRunActive || isSubmitting}
+          className="flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-white rounded transition-colors disabled:opacity-40"
         >
-          <Bug className="w-3.5 h-3.5 text-emerald-600" />
+          <Bug className="w-3.5 h-3.5 text-emerald-400" />
           <span>Test</span>
         </button>
 
         <button
           type="button"
-          disabled
-          title="Fix Loop will be enabled in Phase 18"
-          className="flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-medium bg-neutral-800 text-neutral-500 rounded cursor-not-allowed opacity-40"
+          onClick={handleRunFixLoop}
+          disabled={isRunActive || isSubmitting}
+          className="flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-white rounded transition-colors disabled:opacity-40"
         >
-          <Wrench className="w-3.5 h-3.5 text-rose-600" />
+          <Wrench className="w-3.5 h-3.5 text-rose-400" />
           <span>Fix Loop</span>
         </button>
       </div>
@@ -277,6 +342,16 @@ export const RunPanel: React.FC<RunPanelProps> = ({ projectId = 'default-project
           </span>
         </div>
 
+        {/* Iteration Status Bar & Failing count */}
+        <div className="mt-2.5 pt-2 border-t border-neutral-900">
+          <IterationStatus
+            iteration={iteration}
+            iterationLimit={iterationLimit}
+            failingCount={failingTestsCount}
+            isActive={isRunActive && runType === 'fix_loop'}
+          />
+        </div>
+
         {isRunActive && (
           <button
             type="button"
@@ -288,6 +363,17 @@ export const RunPanel: React.FC<RunPanelProps> = ({ projectId = 'default-project
           </button>
         )}
       </div>
+
+      {/* Escalation Banner on repeated failure or iteration limit */}
+      {fixLoopStopReason && (
+        <div className="mt-3">
+          <EscalationBanner
+            stopReason={fixLoopStopReason}
+            onViewBugs={() => setBottomPanelTab('bugs')}
+            onDismiss={() => setFixLoopStopReason(null)}
+          />
+        </div>
+      )}
 
       {/* Visual Stage Stepper */}
       <div className="mt-4">

@@ -6,6 +6,7 @@ code generation, static checks, workspace updates, and SSE progress events.
 import json
 import logging
 import time
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -25,7 +26,7 @@ try:
 except ImportError:
     SearchEngine = None  # type: ignore
 from backend.app.schemas.development import DevelopmentPlan, FileSpec
-from backend.app.storage.file_store import write_file
+from backend.app.storage.file_store import read_file, resolve_safe_path, write_file
 from backend.app.storage.run_store import (
     get_latest_plan,
     get_run,
@@ -33,6 +34,16 @@ from backend.app.storage.run_store import (
     save_run_step,
     update_run,
 )
+from backend.app.storage.test_store import (
+    get_next_tc_id,
+    get_test_case_by_name_or_function,
+    get_test_cases,
+    save_test_case,
+    save_test_result,
+)
+from backend.app.storage.bug_store import get_bug_reports, save_bug_report
+from backend.app.validation.static_check import check_file
+from backend.app.validation.test_runner import TestCaseResult, TestRunResult, TestRunner
 from backend.app.tasks.task_manager import TaskManager, get_task_manager
 
 logger = logging.getLogger(__name__)
@@ -362,6 +373,328 @@ class Orchestrator:
             self._publish(r_id, "error", {"message": f"Development failed: {exc}"})
             self._publish(r_id, "done", {"status": "failed", "error": str(exc)})
             return RunResult(run_id=r_id, success=False, status="failed", message=str(exc), errors=[str(exc)])
+
+    # -----------------------------------------------------------------------
+    # 3. Test Execution (TESTING stage)
+    # -----------------------------------------------------------------------
+
+    def run_test(
+        self,
+        project_id: str,
+        run_id: Optional[str] = None,
+        test_file: Optional[str] = None,
+    ) -> RunResult:
+        """
+        Execute tests via TestRunner, record results, and generate bug reports on failure.
+        """
+        r_id = run_id or str(uuid.uuid4())
+        existing = get_run(r_id)
+        if not existing:
+            save_run(project_id=project_id, run_type="test", status="running", run_id=r_id)
+        else:
+            update_run(r_id, status="running", started_at=_now_iso())
+
+        self._publish(r_id, "stage", {"stage": "testing", "status": "started"})
+        save_run_step(r_id, step_index=0, stage="testing", status="started", message="Running pytest suite")
+
+        runner = TestRunner()
+        test_res = runner.run_tests(project_id, test_file=test_file)
+
+        # Save test results
+        for tc in test_res.results:
+            tc_rec = get_test_case_by_name_or_function(project_id, tc.name)
+            if not tc_rec:
+                tc_id = tc.tc_id or get_next_tc_id(project_id)
+                tc_rec = save_test_case(
+                    project_id=project_id,
+                    tc_id=tc_id,
+                    name=tc.name,
+                    file_path=tc.file_path or "tests/test_suite.py",
+                    function_name=tc.name,
+                )
+            tc_record_id = tc_rec["id"]
+            tc_id = tc_rec["tc_id"]
+            save_test_result(
+                run_id=r_id,
+                test_case_id=tc_record_id,
+                tc_id=tc_id,
+                result=tc.result,
+                duration_ms=tc.duration_ms,
+                stdout=tc.stdout,
+                stderr=tc.stderr,
+                error_message=tc.error_message,
+                project_id=project_id,
+            )
+            self._publish(r_id, "test", {
+                "tc_id": tc_id,
+                "name": tc.name,
+                "result": tc.result,
+                "duration_ms": tc.duration_ms,
+                "error_message": tc.error_message,
+            })
+
+        # Analyze failures if any
+        failures = [t for t in test_res.results if t.result in ("failed", "error")]
+        bug_reports = []
+        if failures:
+            llm_client = None
+            try:
+                llm_client = self._get_llm_client()
+            except Exception:
+                pass
+            from backend.app.agents.testing_agent import TestingAgent
+
+            agent = TestingAgent(
+                llm_client=llm_client,
+                search_engine=self.search_engine,
+                project_id=project_id,
+            )
+            bug_reports = agent.analyze_failures(failures, project_id=project_id, run_id=r_id, iteration=0)
+            for b in bug_reports:
+                self._publish(r_id, "bug", b)
+
+        final_status = "completed" if test_res.success else "failed"
+        update_run(r_id, status=final_status, completed_at=_now_iso())
+        self._publish(r_id, "stage", {"stage": "testing", "status": "completed"})
+        self._publish(r_id, "done", {
+            "status": final_status,
+            "passed": test_res.passed,
+            "failed": test_res.failed,
+            "summary": test_res.summary,
+        })
+        save_run_step(
+            r_id,
+            step_index=1,
+            stage="testing",
+            status=final_status,
+            message=test_res.summary,
+            duration_ms=test_res.duration_ms,
+        )
+
+        return RunResult(
+            run_id=r_id,
+            success=test_res.success,
+            status=final_status,
+            message=test_res.summary,
+            stop_reason="all_passed" if test_res.success else "test_failures",
+        )
+
+    # -----------------------------------------------------------------------
+    # 4. Automated Fix Loop (FIX_LOOP stage with 3 Stop Conditions)
+    # -----------------------------------------------------------------------
+
+    def run_fix_loop(
+        self,
+        project_id: str,
+        iteration_limit: int = 5,
+        run_id: Optional[str] = None,
+    ) -> RunResult:
+        """
+        Automated test-and-repair fix loop with three mandatory stop rules:
+        1. Stop when all tests pass.
+        2. Stop when the same failure repeats across consecutive iterations.
+        3. Stop when the iteration limit (e.g. 5) is reached.
+        """
+        r_id = run_id or str(uuid.uuid4())
+        existing = get_run(r_id)
+        if not existing:
+            save_run(project_id=project_id, run_type="fix_loop", status="running", run_id=r_id, iteration_limit=iteration_limit)
+        else:
+            update_run(r_id, status="running", started_at=_now_iso())
+
+        iteration = 0
+        previous_failures: Optional[frozenset] = None
+        step_index = 0
+
+        runner = TestRunner()
+        llm_client = None
+        try:
+            llm_client = self._get_llm_client()
+        except Exception:
+            pass
+
+        from backend.app.agents.testing_agent import TestingAgent
+
+        testing_agent = TestingAgent(
+            llm_client=llm_client,
+            search_engine=self.search_engine,
+            project_id=project_id,
+        )
+        dev_agent = DevelopmentAgent(
+            llm_client=llm_client,
+            search_engine=self.search_engine,
+            project_id=project_id,
+        )
+
+        while iteration < iteration_limit:
+            iteration += 1
+            update_run(r_id, iteration_count=iteration)
+            self._publish(r_id, "iteration", {"iteration": iteration, "limit": iteration_limit})
+            self._publish(r_id, "stage", {"stage": "testing", "status": "started", "iteration": iteration})
+
+            # Check cooperative cancellation
+            if self._is_cancelled(r_id):
+                update_run(r_id, status="cancelled", stop_reason="user_cancelled", completed_at=_now_iso())
+                self._publish(r_id, "done", {"status": "cancelled", "stop_reason": "user_cancelled"})
+                return RunResult(run_id=r_id, success=False, status="cancelled", stop_reason="user_cancelled", message="Run cancelled by user.")
+
+            # 1. Run tests
+            test_run = runner.run_tests(project_id)
+            step_index += 1
+            save_run_step(
+                r_id,
+                step_index=step_index,
+                stage="testing",
+                status="completed",
+                message=f"Iteration {iteration}: {test_run.summary}",
+                duration_ms=test_run.duration_ms,
+            )
+
+            failures = [t for t in test_run.results if t.result in ("failed", "error")]
+            for tc in test_run.results:
+                tc_rec = get_test_case_by_name_or_function(project_id, tc.name)
+                if not tc_rec:
+                    tc_id = tc.tc_id or get_next_tc_id(project_id)
+                    tc_rec = save_test_case(
+                        project_id=project_id,
+                        tc_id=tc_id,
+                        name=tc.name,
+                        file_path=tc.file_path or "tests/test_suite.py",
+                        function_name=tc.name,
+                    )
+                tc_record_id = tc_rec["id"]
+                tc_id = tc_rec["tc_id"]
+                save_test_result(
+                    run_id=r_id,
+                    test_case_id=tc_record_id,
+                    tc_id=tc_id,
+                    iteration=iteration,
+                    result=tc.result,
+                    duration_ms=tc.duration_ms,
+                    stdout=tc.stdout,
+                    stderr=tc.stderr,
+                    error_message=tc.error_message,
+                    project_id=project_id,
+                )
+                self._publish(r_id, "test", {
+                    "tc_id": tc_id,
+                    "name": tc.name,
+                    "result": tc.result,
+                    "iteration": iteration,
+                    "duration_ms": tc.duration_ms,
+                    "error_message": tc.error_message,
+                })
+
+            # 2. Stop condition 1: All tests pass
+            if not failures and test_run.total > 0:
+                update_run(r_id, status="completed", stop_reason="all_passed", completed_at=_now_iso())
+                self._publish(r_id, "stage", {"stage": "done", "status": "completed"})
+                self._publish(r_id, "done", {
+                    "status": "completed",
+                    "stop_reason": "all_passed",
+                    "message": "All tests passed successfully!",
+                    "iteration": iteration,
+                })
+                return RunResult(
+                    run_id=r_id,
+                    success=True,
+                    status="completed",
+                    stop_reason="all_passed",
+                    message=f"All tests passed on iteration {iteration}.",
+                )
+
+            # If no tests exist in project workspace
+            if test_run.total == 0:
+                update_run(r_id, status="completed", stop_reason="no_tests", completed_at=_now_iso())
+                self._publish(r_id, "done", {"status": "completed", "stop_reason": "no_tests", "message": "No tests found."})
+                return RunResult(run_id=r_id, success=True, status="completed", stop_reason="no_tests", message="No tests found.")
+
+            # 3. Stop condition 2: Same failure repeats
+            current_failure_set = frozenset((f.name, f.error_message or "") for f in failures)
+            if previous_failures is not None and current_failure_set == previous_failures:
+                msg = f"Fix loop stopped: same {len(failures)} failure(s) repeated across iterations. Manual intervention required."
+                update_run(r_id, status="failed", stop_reason="repeated_failure", error_message=msg, completed_at=_now_iso())
+                self._publish(r_id, "error", {"message": msg, "stop_reason": "repeated_failure"})
+                self._publish(r_id, "done", {
+                    "status": "failed",
+                    "stop_reason": "repeated_failure",
+                    "message": msg,
+                    "iteration": iteration,
+                })
+                return RunResult(
+                    run_id=r_id,
+                    success=False,
+                    status="failed",
+                    stop_reason="repeated_failure",
+                    message=msg,
+                )
+            previous_failures = current_failure_set
+
+            # 4. Generate bug reports
+            bug_reports = testing_agent.analyze_failures(failures, project_id=project_id, run_id=r_id, iteration=iteration)
+            for b in bug_reports:
+                self._publish(r_id, "bug", b)
+
+            # 5. Fix each failing function
+            for bug in bug_reports:
+                if self._is_cancelled(r_id):
+                    update_run(r_id, status="cancelled", stop_reason="user_cancelled", completed_at=_now_iso())
+                    self._publish(r_id, "done", {"status": "cancelled", "stop_reason": "user_cancelled"})
+                    return RunResult(run_id=r_id, success=False, status="cancelled", stop_reason="user_cancelled", message="Run cancelled by user.")
+
+                f_path = bug.get("file_path")
+                func_name = bug.get("function_name")
+                if not f_path:
+                    continue
+
+                self._publish(r_id, "stage", {"stage": "fixing", "file": f_path, "function": func_name, "status": "started"})
+                try:
+                    res = read_file(project_id, f_path)
+                    current_code = res.content if hasattr(res, "content") else str(res)
+                except Exception:
+                    current_code = ""
+
+                if not current_code:
+                    continue
+
+                fixed_code = dev_agent.fix_function(bug, current_code)
+                write_file(project_id, f_path, fixed_code)
+
+                # Re-check syntax / lint on fixed file
+                full_path = resolve_safe_path(project_id, f_path)
+                check_res = check_file(full_path)
+                step_index += 1
+                save_run_step(
+                    r_id,
+                    step_index=step_index,
+                    stage="fixing",
+                    status="completed" if check_res.passed else "failed",
+                    message=f"Applied fix to {f_path}:{func_name or ''} (syntax={'ok' if check_res.passed else 'failed'})",
+                )
+                self._publish(r_id, "file", {
+                    "path": f_path,
+                    "action": "fixed",
+                    "function": func_name,
+                    "status": "ast_ok" if check_res.passed else "check_failed",
+                })
+
+        # 6. Stop condition 3: Iteration limit reached
+        limit_msg = f"Fix loop stopped: maximum iteration limit ({iteration_limit}) reached without resolving all test failures."
+        update_run(r_id, status="failed", stop_reason="iteration_limit", error_message=limit_msg, completed_at=_now_iso())
+        self._publish(r_id, "error", {"message": limit_msg, "stop_reason": "iteration_limit"})
+        self._publish(r_id, "done", {
+            "status": "failed",
+            "stop_reason": "iteration_limit",
+            "message": limit_msg,
+            "iteration": iteration,
+        })
+        return RunResult(
+            run_id=r_id,
+            success=False,
+            status="failed",
+            stop_reason="iteration_limit",
+            message=limit_msg,
+        )
 
     # -----------------------------------------------------------------------
     # Helper: Plan Parsing

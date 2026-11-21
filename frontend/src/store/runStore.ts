@@ -4,6 +4,8 @@
  */
 
 import { create } from 'zustand';
+import type { TestResult } from '../api/tests';
+import type { BugReport } from '../api/bugs';
 
 export type RunStatus = 'idle' | 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 export type RunType = 'plan' | 'develop' | 'test' | 'fix_loop' | null;
@@ -12,6 +14,12 @@ export interface LogEntry {
   timestamp: string;
   message: string;
   level?: 'info' | 'warn' | 'error';
+}
+
+export interface DiffData {
+  original: string;
+  modified: string;
+  filePath: string;
 }
 
 export interface RunState {
@@ -27,6 +35,11 @@ export interface RunState {
   isPlanReviewOpen: boolean;
   logs: LogEntry[];
   filesGenerated: string[];
+  testResults: TestResult[];
+  bugReports: BugReport[];
+  fixLoopStopReason: string | null;
+  failingTestsCount: number;
+  diffData: DiffData | null;
   error: string | null;
 
   // Actions
@@ -37,7 +50,14 @@ export interface RunState {
   setPlanReviewOpen: (isOpen: boolean) => void;
   addLog: (message: string, level?: 'info' | 'warn' | 'error') => void;
   addGeneratedFile: (filePath: string) => void;
-  completeRun: (status: RunStatus, error?: string) => void;
+  setTestResults: (results: TestResult[]) => void;
+  addTestResult: (result: TestResult) => void;
+  setBugReports: (bugs: BugReport[]) => void;
+  addBugReport: (bug: BugReport) => void;
+  setDiffData: (diff: DiffData | null) => void;
+  setFixLoopStopReason: (reason: string | null) => void;
+  setIteration: (iteration: number) => void;
+  completeRun: (status: RunStatus, error?: string, stopReason?: string) => void;
   reset: () => void;
 }
 
@@ -83,6 +103,11 @@ export const useRunStore = create<RunState>((set) => ({
     },
   ],
   filesGenerated: [],
+  testResults: [],
+  bugReports: [],
+  fixLoopStopReason: null,
+  failingTestsCount: 0,
+  diffData: null,
   error: null,
 
   startRun: (runId: string, runType: RunType, prompt?: string) =>
@@ -90,10 +115,11 @@ export const useRunStore = create<RunState>((set) => ({
       activeRunId: runId,
       runType,
       status: 'running',
-      currentStage: runType === 'plan' ? 'Plan' : 'Generate',
-      currentStageIndex: runType === 'plan' ? 1 : 2,
+      currentStage: runType === 'plan' ? 'Plan' : runType === 'test' ? 'Test' : runType === 'fix_loop' ? 'Fix' : 'Generate',
+      currentStageIndex: runType === 'plan' ? 1 : runType === 'test' ? 4 : runType === 'fix_loop' ? 5 : 2,
       activeFile: null,
       error: null,
+      fixLoopStopReason: null,
       logs: [
         ...state.logs,
         {
@@ -143,17 +169,46 @@ export const useRunStore = create<RunState>((set) => ({
       return { filesGenerated: [...state.filesGenerated, filePath] };
     }),
 
-  completeRun: (status: RunStatus, error?: string) =>
+  setTestResults: (results: TestResult[]) =>
+    set({
+      testResults: results,
+      failingTestsCount: results.filter((r) => r.result === 'failed' || r.result === 'error').length,
+    }),
+
+  addTestResult: (result: TestResult) =>
+    set((state) => {
+      const updated = [...state.testResults.filter((r) => r.id !== result.id && !(r.tc_id === result.tc_id && r.iteration === result.iteration)), result];
+      return {
+        testResults: updated,
+        failingTestsCount: updated.filter((r) => r.result === 'failed' || r.result === 'error').length,
+      };
+    }),
+
+  setBugReports: (bugs: BugReport[]) => set({ bugReports: bugs }),
+
+  addBugReport: (bug: BugReport) =>
+    set((state) => ({
+      bugReports: [...state.bugReports.filter((b) => b.id !== bug.id && b.bug_id !== bug.bug_id), bug],
+    })),
+
+  setDiffData: (diff: DiffData | null) => set({ diffData: diff }),
+
+  setFixLoopStopReason: (reason: string | null) => set({ fixLoopStopReason: reason }),
+
+  setIteration: (iteration: number) => set({ iteration }),
+
+  completeRun: (status: RunStatus, error?: string, stopReason?: string) =>
     set((state) => ({
       status,
       currentStage: status === 'completed' ? 'Done' : state.currentStage,
       currentStageIndex: status === 'completed' ? 6 : state.currentStageIndex,
       error: error || null,
+      fixLoopStopReason: stopReason || state.fixLoopStopReason,
       logs: [
         ...state.logs,
         {
           timestamp: formatTimestamp(),
-          message: `Run ${state.activeRunId} ended with status: ${status}${error ? ` (${error})` : ''}`,
+          message: `Run ${state.activeRunId} ended with status: ${status}${stopReason ? ` [${stopReason}]` : ''}${error ? ` (${error})` : ''}`,
           level: status === 'failed' ? 'error' : 'info',
         },
       ],
@@ -167,6 +222,10 @@ export const useRunStore = create<RunState>((set) => ({
       currentStage: 'Idle',
       currentStageIndex: 0,
       activeFile: null,
+      iteration: 0,
+      fixLoopStopReason: null,
+      failingTestsCount: 0,
+      diffData: null,
       error: null,
     }),
 }));
