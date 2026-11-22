@@ -1,4 +1,6 @@
 /runtime/
+/Lib/
+/Scripts/
 /models/*.gguf
 /data/
 /workspace/

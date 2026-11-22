@@ -17,10 +17,12 @@ import { getProject } from '../api/projects';
 import { getFileTree, getFileContent, saveFile, deleteFile } from '../api/files';
 import type { FileNode } from '../api/types';
 import { useUIStore } from '../store/uiStore';
+import { useRunStore } from '../store/runStore';
 
 import { Sidebar } from '../components/workspace/Sidebar';
 import { EditorTabs } from '../components/editor/EditorTabs';
 import { CodeEditor } from '../components/editor/CodeEditor';
+import { DiffEditorView } from '../components/editor/DiffEditorView';
 import { RunPanel } from '../components/workspace/RunPanel';
 import { BottomPanel } from '../components/workspace/BottomPanel';
 import { EmptyState } from '../components/shared/EmptyState';
@@ -31,6 +33,9 @@ export const WorkspacePage: React.FC = () => {
   const queryClient = useQueryClient();
 
   const [isSaving, setIsSaving] = useState(false);
+
+  // Run store state
+  const { diffData, setDiffData } = useRunStore();
 
   // UI state from Zustand
   const {
@@ -111,6 +116,28 @@ export const WorkspacePage: React.FC = () => {
     }
   };
 
+  // Handle selecting a test or bug to view in editor
+  const handleSelectTestOrBug = async (filePath: string, _functionName?: string | null) => {
+    const alreadyOpen = openFiles.find((f) => f.path === filePath);
+    if (alreadyOpen) {
+      setActiveFile(filePath);
+      return;
+    }
+
+    try {
+      const fileData = await getFileContent(projectId, filePath);
+      openFile({
+        path: filePath,
+        name: filePath.split('/').pop() || filePath,
+        language: fileData.language,
+        content: fileData.content,
+        isGenerated: fileData.is_generated,
+      });
+    } catch {
+      // Handled gracefully
+    }
+  };
+
   // Handle creating a new file
   const handleCreateFile = async (filePath: string) => {
     try {
@@ -175,12 +202,14 @@ export const WorkspacePage: React.FC = () => {
           {/* Left Panel: Sidebar (Tabs: Docs, Code, Tests) */}
           <Panel defaultSize={20} minSize={15} maxSize={35}>
             <Sidebar
+              projectId={projectId}
               currentTab={sidebarTab}
               onTabChange={setSidebarTab}
               fileTree={fileTreeData?.tree ?? []}
               activeFilePath={activeFilePath}
               isLoadingFiles={isLoadingFiles}
               onSelectFile={handleSelectFile}
+              onSelectTest={handleSelectTestOrBug}
               onCreateFile={handleCreateFile}
               onDeleteFile={handleDeleteFile}
               onRefreshFiles={() => refetchFiles()}
@@ -202,14 +231,34 @@ export const WorkspacePage: React.FC = () => {
                     onCloseTab={closeFile}
                   />
                   <div className="flex-1 overflow-hidden">
-                    <CodeEditor
-                      activeFile={activeFile}
-                      onChangeContent={(content) =>
-                        activeFile && updateFileContent(activeFile.path, content)
-                      }
-                      onSaveFile={handleSaveActiveFile}
-                      isSaving={isSaving}
-                    />
+                    {diffData ? (
+                      <DiffEditorView
+                        original={diffData.original}
+                        modified={diffData.modified}
+                        filePath={diffData.filePath}
+                        onAccept={async () => {
+                          try {
+                            await saveFile(projectId, diffData.filePath, diffData.modified);
+                            updateFileContent(diffData.filePath, diffData.modified);
+                            markFileSaved(diffData.filePath);
+                            await queryClient.invalidateQueries({ queryKey: ['files', projectId] });
+                          } finally {
+                            setDiffData(null);
+                          }
+                        }}
+                        onReject={() => setDiffData(null)}
+                        onClose={() => setDiffData(null)}
+                      />
+                    ) : (
+                      <CodeEditor
+                        activeFile={activeFile}
+                        onChangeContent={(content) =>
+                          activeFile && updateFileContent(activeFile.path, content)
+                        }
+                        onSaveFile={handleSaveActiveFile}
+                        isSaving={isSaving}
+                      />
+                    )}
                   </div>
                 </div>
               </Panel>
@@ -224,10 +273,12 @@ export const WorkspacePage: React.FC = () => {
                 collapsedSize={0}
               >
                 <BottomPanel
+                  projectId={projectId}
                   currentTab={bottomPanelTab}
                   onTabChange={setBottomPanelTab}
                   isOpen={isBottomPanelOpen}
                   onToggleOpen={toggleBottomPanel}
+                  onSelectBug={handleSelectTestOrBug}
                 />
               </Panel>
             </PanelGroup>
@@ -237,7 +288,7 @@ export const WorkspacePage: React.FC = () => {
 
           {/* Right Panel: Agent Execution Run Panel */}
           <Panel defaultSize={25} minSize={18} maxSize={35}>
-            <RunPanel />
+            <RunPanel projectId={projectId} />
           </Panel>
         </PanelGroup>
       </div>
