@@ -41,6 +41,7 @@ export interface RunState {
   failingTestsCount: number;
   diffData: DiffData | null;
   error: string | null;
+  modelOutput: string;
 
   // Actions
   startRun: (runId: string, runType: RunType, prompt?: string) => void;
@@ -57,6 +58,8 @@ export interface RunState {
   setDiffData: (diff: DiffData | null) => void;
   setFixLoopStopReason: (reason: string | null) => void;
   setIteration: (iteration: number) => void;
+  appendModelOutput: (token: string) => void;
+  clearModelOutput: () => void;
   completeRun: (status: RunStatus, error?: string, stopReason?: string) => void;
   reset: () => void;
 }
@@ -109,6 +112,7 @@ export const useRunStore = create<RunState>((set) => ({
   failingTestsCount: 0,
   diffData: null,
   error: null,
+  modelOutput: '',
 
   startRun: (runId: string, runType: RunType, prompt?: string) =>
     set((state) => ({
@@ -196,6 +200,11 @@ export const useRunStore = create<RunState>((set) => ({
   setFixLoopStopReason: (reason: string | null) => set({ fixLoopStopReason: reason }),
 
   setIteration: (iteration: number) => set({ iteration }),
+
+  appendModelOutput: (token: string) =>
+    set((state) => ({ modelOutput: state.modelOutput + token })),
+
+  clearModelOutput: () => set({ modelOutput: '' }),
 
   completeRun: (status: RunStatus, error?: string, stopReason?: string) =>
     set((state) => ({

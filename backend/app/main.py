@@ -252,6 +252,7 @@ from backend.app.api.runs import router as runs_router  # noqa: E402
 from backend.app.api.plan import router as plan_router  # noqa: E402
 from backend.app.api.tests import router as tests_router  # noqa: E402
 from backend.app.api.bugs import router as bugs_router  # noqa: E402
+from backend.app.api.reports import router as reports_router  # noqa: E402
 
 app.include_router(health_router)
 app.include_router(projects_router)
@@ -265,6 +266,7 @@ app.include_router(runs_router)
 app.include_router(plan_router)
 app.include_router(tests_router)
 app.include_router(bugs_router)
+app.include_router(reports_router)
 
 # ---------------------------------------------------------------------------
 # Serve built frontend (if it exists)

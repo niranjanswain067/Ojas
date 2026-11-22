@@ -14,6 +14,8 @@ import { apiGet } from '../../api/client';
 import type { HealthResponse } from '../../api/types';
 import { useTheme } from '../../app/providers';
 import { StatusChip } from './StatusChip';
+import { DisconnectedBanner } from './DisconnectedBanner';
+import { ToastContainer } from './ToastContainer';
 
 const NAV_ITEMS = [
   { label: 'Projects', to: '/projects', icon: Folders },
@@ -88,6 +90,7 @@ export const AppShell: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-bg text-text flex flex-col font-sans selection:bg-primary/20">
+      <DisconnectedBanner />
       {/* Top Navigation Bar */}
       <header className="h-14 border-b border-border bg-surface flex items-center justify-between px-4 sm:px-6 z-10 sticky top-0 shadow-sm">
         {/* Left: Branding & Navigation */}
@@ -151,6 +154,7 @@ export const AppShell: React.FC = () => {
       <main className={`flex-1 flex flex-col w-full ${isWorkspace ? 'h-[calc(100vh-3.5rem)] overflow-hidden' : 'p-6 max-w-7xl mx-auto'}`}>
         <Outlet />
       </main>
+      <ToastContainer />
     </div>
   );
 };

@@ -10,6 +10,7 @@ import { useRunStore } from '../../store/runStore';
 import { LogView } from './LogView';
 import { TestResultsTable } from './TestResultsTable';
 import { BugList } from './BugList';
+import { ModelOutput } from './ModelOutput';
 
 interface BottomPanelProps {
   projectId?: string;
@@ -121,12 +122,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
             />
           )}
 
-          {currentTab === 'model' && (
-            <div className="text-center py-6 text-neutral-400">
-              <Cpu className="w-8 h-8 text-neutral-600 mx-auto mb-2" />
-              <p>Raw model output will stream here during generation.</p>
-            </div>
-          )}
+          {currentTab === 'model' && <ModelOutput />}
         </div>
       )}
     </div>

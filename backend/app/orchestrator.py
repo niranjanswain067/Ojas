@@ -358,6 +358,12 @@ class Orchestrator:
                 {"status": "completed", "stop_reason": "completed", "files_generated": files_generated},
             )
 
+            try:
+                from backend.app.storage.report_writer import ReportWriter
+                ReportWriter(project_id).generate_consolidated_report()
+            except Exception as rw_exc:
+                logger.debug("Failed auto-generating report: %s", rw_exc)
+
             return RunResult(
                 run_id=r_id,
                 success=True,
@@ -595,6 +601,11 @@ class Orchestrator:
                     "message": "All tests passed successfully!",
                     "iteration": iteration,
                 })
+                try:
+                    from backend.app.storage.report_writer import ReportWriter
+                    ReportWriter(project_id).generate_consolidated_report()
+                except Exception:
+                    pass
                 return RunResult(
                     run_id=r_id,
                     success=True,
