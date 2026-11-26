@@ -1,0 +1,25 @@
+# Student Grade Manager Requirements
+
+REQ-001: Add Student
+The GradeManager shall allow adding students with unique `student_id` and `name`.
+
+REQ-002: Add Course
+The GradeManager shall allow adding courses with unique `course_id`, `title`, and `credits`.
+
+REQ-003: Record Grade
+The GradeManager shall allow recording a numeric score (0 to 100) for a student in a course, validating bounds.
+
+REQ-004: Letter Grade Conversion
+The GradeManager shall convert numeric scores to letter grades (A >= 90, B >= 80, C >= 70, D >= 60, F < 60).
+
+REQ-005: Calculate GPA
+The GradeManager shall compute weighted GPA on a 4.0 scale (A=4.0, B=3.0, C=2.0, D=1.0, F=0.0) using course credits.
+
+REQ-006: Student Report Card
+The GradeManager shall generate a structured dictionary report card containing student info, course grades, and GPA.
+
+REQ-007: Course Average
+The GradeManager shall compute the average numeric score across all enrolled students in a course.
+
+REQ-008: Top Performers
+The GradeManager shall return students sorted by GPA descending.

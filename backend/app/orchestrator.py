@@ -5,6 +5,7 @@ code generation, static checks, workspace updates, and SSE progress events.
 
 import json
 import logging
+import re
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -14,6 +15,7 @@ from typing import Any, Dict, List, Optional
 from backend.app.agents.development_agent import DevelopmentAgent
 from backend.app.events.event_bus import EventBus, get_event_bus
 from backend.app.llm.client import LLMClient
+from backend.app.metrics import RunMetrics
 from backend.app.rag.chunker import chunk_code
 
 try:
@@ -142,6 +144,7 @@ class Orchestrator:
 
         logger.info("Starting run_plan for project %s (run_id: %s)", project_id, r_id)
         start_time = time.time()
+        metrics = RunMetrics(run_id=r_id, project_id=project_id)
 
         # Step 0: Record audit step & publish event
         save_run_step(r_id, step_index=0, stage="planning", status="started", message="Analyzing requirements")
@@ -173,6 +176,8 @@ class Orchestrator:
             plan_text = json.dumps(plan.model_dump(), indent=2)
 
             duration_ms = int((time.time() - start_time) * 1000)
+            metrics.record_stage("planning", time.time() - start_time)
+            metrics.finalize("pending_approval")
             update_run(
                 r_id,
                 status="pending_approval",
@@ -200,6 +205,14 @@ class Orchestrator:
                 {"run_id": r_id, "plan_text": plan_text, "status": "pending_approval"},
             )
 
+            # Signal completion so the frontend SSE handler closes the stream
+            # and transitions the UI out of the "running" state.
+            self._publish(
+                r_id,
+                "done",
+                {"status": "completed", "stop_reason": "plan_ready"},
+            )
+
             return RunResult(
                 run_id=r_id,
                 success=True,
@@ -210,6 +223,8 @@ class Orchestrator:
 
         except Exception as exc:
             logger.exception("run_plan failed for run %s: %s", r_id, exc)
+            metrics.record_stage("planning", time.time() - start_time)
+            metrics.finalize("failed")
             update_run(r_id, status="failed", error_message=str(exc), completed_at=_now_iso())
             save_run_step(r_id, step_index=1, stage="planning", status="failed", message=str(exc))
             self._publish(r_id, "error", {"message": f"Planning failed: {exc}"})
@@ -248,6 +263,8 @@ class Orchestrator:
             update_run(r_id, status="running", started_at=now)
 
         logger.info("Starting run_develop for project %s (run_id: %s)", project_id, r_id)
+        dev_start = time.time()
+        metrics = RunMetrics(run_id=r_id, project_id=project_id)
 
         try:
             llm = self._get_llm_client()
@@ -265,12 +282,11 @@ class Orchestrator:
                     active_plan_text = latest["plan_text"]
 
             if not active_plan_text:
-                # If no plan exists, run planning first
+                # No plan exists — generate one and return for user approval.
+                # The user must approve the plan via the /approve endpoint,
+                # which starts a new develop run with the approved plan text.
                 logger.info("No plan found for develop run %s. Generating plan first.", r_id)
-                plan_res = self.run_plan(project_id, prompt or "Build system", run_id=r_id)
-                if not plan_res.success:
-                    return plan_res
-                active_plan_text = plan_res.plan_text
+                return self.run_plan(project_id, prompt or "Build system", run_id=r_id)
 
             # Parse plan
             plan_obj = self._parse_plan_object(active_plan_text, prompt)
@@ -350,6 +366,8 @@ class Orchestrator:
                 )
 
             # Completion
+            metrics.record_stage("generating", time.time() - dev_start)
+            metrics.finalize("completed")
             update_run(r_id, status="completed", completed_at=_now_iso())
             self._publish(r_id, "stage", {"stage": "generating", "status": "completed"})
             self._publish(
@@ -375,6 +393,8 @@ class Orchestrator:
 
         except Exception as exc:
             logger.exception("run_develop failed for run %s: %s", r_id, exc)
+            metrics.record_stage("generating", time.time() - dev_start)
+            metrics.finalize("failed")
             update_run(r_id, status="failed", error_message=str(exc), completed_at=_now_iso())
             self._publish(r_id, "error", {"message": f"Development failed: {exc}"})
             self._publish(r_id, "done", {"status": "failed", "error": str(exc)})
@@ -511,6 +531,8 @@ class Orchestrator:
         iteration = 0
         previous_failures: Optional[frozenset] = None
         step_index = 0
+        fix_loop_start = time.time()
+        metrics = RunMetrics(run_id=r_id, project_id=project_id)
 
         runner = TestRunner()
         llm_client = None
@@ -593,6 +615,9 @@ class Orchestrator:
 
             # 2. Stop condition 1: All tests pass
             if not failures and test_run.total > 0:
+                metrics.fix_loop_iterations = iteration
+                metrics.record_stage("testing_and_fixing", time.time() - fix_loop_start)
+                metrics.finalize("completed")
                 update_run(r_id, status="completed", stop_reason="all_passed", completed_at=_now_iso())
                 self._publish(r_id, "stage", {"stage": "done", "status": "completed"})
                 self._publish(r_id, "done", {
@@ -620,10 +645,16 @@ class Orchestrator:
                 self._publish(r_id, "done", {"status": "completed", "stop_reason": "no_tests", "message": "No tests found."})
                 return RunResult(run_id=r_id, success=True, status="completed", stop_reason="no_tests", message="No tests found.")
 
-            # 3. Stop condition 2: Same failure repeats
-            current_failure_set = frozenset((f.name, f.error_message or "") for f in failures)
+            # 3. Stop condition 2: Same failure repeats (normalize memory addresses like 0x7f1a...)
+            current_failure_set = frozenset(
+                (f.name, re.sub(r"0x[0-9a-fA-F]+", "0xADDR", f.error_message or ""))
+                for f in failures
+            )
             if previous_failures is not None and current_failure_set == previous_failures:
                 msg = f"Fix loop stopped: same {len(failures)} failure(s) repeated across iterations. Manual intervention required."
+                metrics.fix_loop_iterations = iteration
+                metrics.record_stage("testing_and_fixing", time.time() - fix_loop_start)
+                metrics.finalize("failed")
                 update_run(r_id, status="failed", stop_reason="repeated_failure", error_message=msg, completed_at=_now_iso())
                 self._publish(r_id, "error", {"message": msg, "stop_reason": "repeated_failure"})
                 self._publish(r_id, "done", {
@@ -673,7 +704,7 @@ class Orchestrator:
 
                 # Re-check syntax / lint on fixed file
                 full_path = resolve_safe_path(project_id, f_path)
-                check_res = check_file(full_path)
+                check_res = check_file(fixed_code, str(full_path))
                 step_index += 1
                 save_run_step(
                     r_id,
@@ -691,6 +722,9 @@ class Orchestrator:
 
         # 6. Stop condition 3: Iteration limit reached
         limit_msg = f"Fix loop stopped: maximum iteration limit ({iteration_limit}) reached without resolving all test failures."
+        metrics.fix_loop_iterations = iteration
+        metrics.record_stage("testing_and_fixing", time.time() - fix_loop_start)
+        metrics.finalize("failed")
         update_run(r_id, status="failed", stop_reason="iteration_limit", error_message=limit_msg, completed_at=_now_iso())
         self._publish(r_id, "error", {"message": limit_msg, "stop_reason": "iteration_limit"})
         self._publish(r_id, "done", {

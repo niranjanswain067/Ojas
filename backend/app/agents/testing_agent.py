@@ -87,8 +87,14 @@ class TestingAgent:
                     pass
 
         # 2. Derive source filename from test filename (e.g. test_calculator.py -> calculator.py)
-        if tc.file_path:
-            test_stem = Path(tc.file_path).stem
+        resolved_test_file = tc.file_path
+        if not resolved_test_file:
+            tc_rec = get_test_case_by_name_or_function(project_id, tc.name)
+            if tc_rec and tc_rec.get("file_path"):
+                resolved_test_file = tc_rec["file_path"]
+
+        if resolved_test_file:
+            test_stem = Path(resolved_test_file).stem
             source_stem = re.sub(r"^test_", "", test_stem)
             source_stem = re.sub(r"_test$", "", source_stem)
             candidate = f"{source_stem}.py"
@@ -100,12 +106,33 @@ class TestingAgent:
             except Exception:
                 pass
 
+        # 2b. Search workspace non-test .py files for matching function or module name in error
+        from backend.app.storage.project_store import get_workspace_dir
+
+        ws_dir = get_workspace_dir(project_id)
+        if ws_dir.exists():
+            func_guess = tc.name.replace("test_", "") if tc.name.startswith("test_") else tc.name
+            for py_file in sorted(ws_dir.glob("*.py")):
+                if py_file.name.startswith("test_") or py_file.name.endswith("_test.py"):
+                    continue
+                try:
+                    content = py_file.read_text(encoding="utf-8", errors="ignore")
+                    mod_name = py_file.stem
+                    if (
+                        f"def {func_guess}(" in content
+                        or f"<{mod_name}." in out
+                        or f"import {mod_name}" in out
+                    ):
+                        return py_file.name, func_guess, content
+                except Exception:
+                    pass
+
         # 3. Fallback: return test file itself
-        if tc.file_path:
+        if resolved_test_file:
             try:
-                res = read_file(project_id, tc.file_path)
+                res = read_file(project_id, resolved_test_file)
                 content = res.content if hasattr(res, "content") else str(res)
-                return tc.file_path, tc.name, content
+                return resolved_test_file, tc.name, content
             except Exception:
                 pass
 

@@ -22,7 +22,7 @@ from typing import Optional
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.app.config import get_settings
@@ -269,10 +269,25 @@ app.include_router(bugs_router)
 app.include_router(reports_router)
 
 # ---------------------------------------------------------------------------
-# Serve built frontend (if it exists)
+# Serve built frontend with SPA client-side routing fallback
 # ---------------------------------------------------------------------------
 
 _frontend_dist = _PROJECT_ROOT / "frontend" / "dist"
 if _frontend_dist.is_dir():
-    app.mount("/", StaticFiles(directory=str(_frontend_dist), html=True), name="frontend")
-    logger.info("Serving frontend from %s", _frontend_dist)
+    _assets_dir = _frontend_dist / "assets"
+    if _assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(request: Request, full_path: str):
+        # If requesting a concrete static file from frontend/dist, serve it directly
+        file_path = _frontend_dist / full_path
+        if full_path and file_path.is_file():
+            return FileResponse(file_path)
+        # Fall back to index.html so React Router handles client-side routing
+        index_file = _frontend_dist / "index.html"
+        if index_file.is_file():
+            return FileResponse(index_file)
+        return JSONResponse(status_code=404, content={"detail": "Frontend build not found"})
+
+    logger.info("Serving frontend from %s with SPA client-side routing fallback", _frontend_dist)

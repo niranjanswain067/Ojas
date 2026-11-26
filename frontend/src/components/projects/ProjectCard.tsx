@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -6,11 +6,14 @@ import {
   Bug,
   Calendar,
   CheckCircle2,
+  Download,
   FileCode,
   FileText,
+  Loader2,
   Play,
   Trash2,
 } from 'lucide-react';
+import { downloadProjectZip } from '../../api/projects';
 import type { Project } from '../../api/types';
 
 export interface ProjectCardProps {
@@ -20,9 +23,23 @@ export interface ProjectCardProps {
 
 export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDelete }) => {
   const navigate = useNavigate();
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const handleOpen = () => {
     navigate(`/workspace/${project.id}`);
+  };
+
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isDownloading) return;
+    setIsDownloading(true);
+    try {
+      await downloadProjectZip(project.id, project.name);
+    } catch (err) {
+      console.error('Failed to download project:', err);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -132,6 +149,21 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDelete }) =
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={isDownloading}
+            className="p-1.5 rounded text-muted hover:text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+            title="Download project ZIP"
+            aria-label={`Download ${project.name}`}
+          >
+            {isDownloading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Download className="w-3.5 h-3.5" />
+            )}
+          </button>
+
           <button
             type="button"
             onClick={() => onDelete(project)}

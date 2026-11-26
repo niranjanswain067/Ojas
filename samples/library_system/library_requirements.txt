@@ -1,0 +1,31 @@
+# Library Management System Requirements
+
+REQ-001: Add Book
+The Library shall allow adding books with unique `book_id`, `title`, `author`, and `copies` count.
+
+REQ-002: Remove Book
+The Library shall allow removing a book by `book_id`, raising KeyError if not found.
+
+REQ-003: Register Member
+The Library shall allow registering members with unique `member_id` and `name`.
+
+REQ-004: Remove Member
+The Library shall allow removing a registered member by `member_id`.
+
+REQ-005: Issue Book
+The Library shall allow issuing an available book copy to a registered member, decrementing available copies.
+
+REQ-006: Prevent Issue When Unavailable
+The Library shall raise ValueError if all copies of a book are currently issued.
+
+REQ-007: Return Book
+The Library shall allow returning an issued book, incrementing available copies.
+
+REQ-008: Search Books by Title or Author
+The Library shall provide `search_books(query)` returning books matching title or author case-insensitively.
+
+REQ-009: List Member Borrowed Books
+The Library shall track and list books currently borrowed by a given `member_id`.
+
+REQ-010: Inventory Summary
+The Library shall provide a summary count of total unique titles and total available copies.

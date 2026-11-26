@@ -1,0 +1,16 @@
+# Calculator Application Requirements
+
+REQ-001: Addition
+The Calculator class shall provide an `add(a, b)` method that returns the sum of two numbers `a` and `b`.
+
+REQ-002: Subtraction
+The Calculator class shall provide a `subtract(a, b)` method that returns the difference `a - b`.
+
+REQ-003: Multiplication
+The Calculator class shall provide a `multiply(a, b)` method that returns the product `a * b`.
+
+REQ-004: Division with Zero Guard
+The Calculator class shall provide a `divide(a, b)` method that returns `a / b` and raises a `ValueError` when `b == 0`.
+
+REQ-005: Calculation History
+The Calculator class shall record each operation in an internal `history` list and expose `get_history()` and `clear_history()` methods.

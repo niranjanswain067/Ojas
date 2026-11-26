@@ -159,30 +159,183 @@ def check_lint(file_path: str) -> CheckResult:
     return CheckResult(passed=passed, issues=issues)
 
 
+def check_html_syntax(code: str, file_path: str = "") -> CheckResult:
+    """Validate HTML markup for basic balance and ensure it is not Python code."""
+    issues = []
+    if re.search(r"^\s*def\s+[a-zA-Z0-9_]+\s*\(", code, re.MULTILINE):
+        issues.append(
+            CheckIssue(
+                line=1,
+                col=1,
+                code="HTML_PYTHON_DEF",
+                message="File contains Python 'def' function syntax instead of HTML markup.",
+            )
+        )
+    if "```" in code:
+        issues.append(
+            CheckIssue(
+                line=1,
+                col=1,
+                code="RAW_MARKDOWN",
+                message="File contains unextracted markdown code fence backticks.",
+            )
+        )
+    if code.strip() and not ("<" in code and ">" in code):
+        issues.append(
+            CheckIssue(
+                line=1,
+                col=1,
+                code="HTML_NO_TAGS",
+                message="HTML file does not contain any HTML tags.",
+            )
+        )
+    return CheckResult(passed=len(issues) == 0, issues=issues)
+
+
+def check_css_syntax(code: str, file_path: str = "") -> CheckResult:
+    """Validate CSS rules: check brace matching and ensure it is not Python code."""
+    issues = []
+    if re.search(r"^\s*def\s+[a-zA-Z0-9_]+\s*\(", code, re.MULTILINE):
+        issues.append(
+            CheckIssue(
+                line=1,
+                col=1,
+                code="CSS_PYTHON_DEF",
+                message="File contains Python 'def' function syntax instead of CSS rules.",
+            )
+        )
+    if re.search(r"^\s*class\s+[a-zA-Z0-9_]+(?:\([^\)]*\))?:", code, re.MULTILINE):
+        issues.append(
+            CheckIssue(
+                line=1,
+                col=1,
+                code="CSS_PYTHON_CLASS",
+                message="File contains Python 'class Foo:' definition instead of CSS selectors.",
+            )
+        )
+    if "```" in code:
+        issues.append(
+            CheckIssue(
+                line=1,
+                col=1,
+                code="RAW_MARKDOWN",
+                message="File contains unextracted markdown code fence backticks.",
+            )
+        )
+    opens = code.count("{")
+    closes = code.count("}")
+    if opens != closes:
+        issues.append(
+            CheckIssue(
+                line=1,
+                col=1,
+                code="CSS_UNBALANCED_BRACES",
+                message=f"Mismatched braces: {opens} opening '{{' and {closes} closing '}}'.",
+            )
+        )
+    return CheckResult(passed=len(issues) == 0, issues=issues)
+
+
+def check_js_syntax(code: str, file_path: str = "") -> CheckResult:
+    """Validate JavaScript: check braces/parentheses and ensure it is not Python code."""
+    issues = []
+    if re.search(r"^\s*def\s+[a-zA-Z0-9_]+\s*\(", code, re.MULTILINE):
+        issues.append(
+            CheckIssue(
+                line=1,
+                col=1,
+                code="JS_PYTHON_DEF",
+                message="File contains Python 'def' function syntax instead of JavaScript function.",
+            )
+        )
+    if re.search(r"\bself\.[a-zA-Z0-9_]+", code):
+        issues.append(
+            CheckIssue(
+                line=1,
+                col=1,
+                code="JS_PYTHON_SELF",
+                message="File contains Python 'self.' syntax instead of JavaScript 'this.' or variables.",
+            )
+        )
+    if "```" in code:
+        issues.append(
+            CheckIssue(
+                line=1,
+                col=1,
+                code="RAW_MARKDOWN",
+                message="File contains unextracted markdown code fence backticks.",
+            )
+        )
+    if code.count("{") != code.count("}"):
+        issues.append(
+            CheckIssue(
+                line=1,
+                col=1,
+                code="JS_UNBALANCED_BRACES",
+                message="Mismatched curly braces '{' and '}'.",
+            )
+        )
+    if code.count("(") != code.count(")"):
+        issues.append(
+            CheckIssue(
+                line=1,
+                col=1,
+                code="JS_UNBALANCED_PARENS",
+                message="Mismatched parentheses '(' and ')'.",
+            )
+        )
+    return CheckResult(passed=len(issues) == 0, issues=issues)
+
+
+def check_json_syntax(code: str, file_path: str = "") -> CheckResult:
+    """Validate JSON format."""
+    try:
+        json.loads(code)
+        return CheckResult(passed=True, issues=[])
+    except Exception as exc:
+        return CheckResult(
+            passed=False,
+            issues=[CheckIssue(line=1, col=1, code="JSON_INVALID", message=str(exc))],
+        )
+
+
 def check_file(code: str, file_path: str = "") -> CheckResult:
     """
-    Combined validation: Run syntax check first. If syntax fails,
-    do NOT run lint. If syntax passes, run ruff linting.
+    Combined validation: Select appropriate validator by file extension.
+    For Python files: runs AST syntax check and Ruff linting.
+    For HTML/CSS/JS/JSON: runs format-specific validation.
     """
-    syntax_res = check_syntax(code, file_path=file_path)
-    if not syntax_res.passed:
-        return syntax_res
+    ext = Path(file_path).suffix.lower() if file_path else ".py"
+    if ext == ".py" or not ext:
+        syntax_res = check_syntax(code, file_path=file_path)
+        if not syntax_res.passed:
+            return syntax_res
 
-    # Syntax passed; perform lint check
-    if file_path and Path(file_path).is_file():
-        # Target file exists on disk
-        return check_lint(file_path)
+        # Syntax passed; perform lint check
+        if file_path and Path(file_path).is_file():
+            # Target file exists on disk
+            return check_lint(file_path)
 
-    # Use a temporary file for linting
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".py", text=True)
-    try:
-        with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
-            f.write(code)
-        lint_res = check_lint(temp_path)
-        return lint_res
-    finally:
+        # Use a temporary file for linting
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".py", text=True)
         try:
-            if os.path.exists(temp_path):
-                os.unlink(temp_path)
-        except Exception:
-            pass
+            with os.fdopen(temp_fd, "w", encoding="utf-8") as f:
+                f.write(code)
+            lint_res = check_lint(temp_path)
+            return lint_res
+        finally:
+            try:
+                if os.path.exists(temp_path):
+                    os.unlink(temp_path)
+            except Exception:
+                pass
+    elif ext in (".html", ".htm"):
+        return check_html_syntax(code, file_path=file_path)
+    elif ext == ".css":
+        return check_css_syntax(code, file_path=file_path)
+    elif ext in (".js", ".jsx", ".ts", ".tsx"):
+        return check_js_syntax(code, file_path=file_path)
+    elif ext == ".json":
+        return check_json_syntax(code, file_path=file_path)
+
+    return CheckResult(passed=True, issues=[])

@@ -207,21 +207,24 @@ export const useRunStore = create<RunState>((set) => ({
   clearModelOutput: () => set({ modelOutput: '' }),
 
   completeRun: (status: RunStatus, error?: string, stopReason?: string) =>
-    set((state) => ({
-      status,
-      currentStage: status === 'completed' ? 'Done' : state.currentStage,
-      currentStageIndex: status === 'completed' ? 6 : state.currentStageIndex,
-      error: error || null,
-      fixLoopStopReason: stopReason || state.fixLoopStopReason,
-      logs: [
-        ...state.logs,
-        {
-          timestamp: formatTimestamp(),
-          message: `Run ${state.activeRunId} ended with status: ${status}${stopReason ? ` [${stopReason}]` : ''}${error ? ` (${error})` : ''}`,
-          level: status === 'failed' ? 'error' : 'info',
-        },
-      ],
-    })),
+    set((state) => {
+      const isPlanOnly = state.runType === 'plan' || stopReason === 'plan_ready';
+      return {
+        status,
+        currentStage: status === 'completed' && !isPlanOnly ? 'Done' : state.currentStage,
+        currentStageIndex: status === 'completed' && !isPlanOnly ? 6 : state.currentStageIndex,
+        error: error || null,
+        fixLoopStopReason: stopReason || state.fixLoopStopReason,
+        logs: [
+          ...state.logs,
+          {
+            timestamp: formatTimestamp(),
+            message: `Run ${state.activeRunId} ended with status: ${status}${stopReason ? ` [${stopReason}]` : ''}${error ? ` (${error})` : ''}`,
+            level: status === 'failed' ? 'error' : 'info',
+          },
+        ],
+      };
+    }),
 
   reset: () =>
     set({
