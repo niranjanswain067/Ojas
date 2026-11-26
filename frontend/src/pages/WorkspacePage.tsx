@@ -11,9 +11,9 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { Code2, ArrowRight } from 'lucide-react';
+import { Code2, ArrowRight, Download, Loader2 } from 'lucide-react';
 
-import { getProject } from '../api/projects';
+import { getProject, downloadProjectZip } from '../api/projects';
 import { getFileTree, getFileContent, saveFile, deleteFile } from '../api/files';
 import type { FileNode } from '../api/types';
 import { useUIStore } from '../store/uiStore';
@@ -33,9 +33,22 @@ export const WorkspacePage: React.FC = () => {
   const queryClient = useQueryClient();
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Run store state
   const { diffData, setDiffData } = useRunStore();
+
+  const handleDownloadProject = async () => {
+    if (!projectId || isDownloading) return;
+    setIsDownloading(true);
+    try {
+      await downloadProjectZip(projectId, project?.name);
+    } catch (err) {
+      console.error('Failed to download project:', err);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   // UI state from Zustand
   const {
@@ -193,6 +206,23 @@ export const WorkspacePage: React.FC = () => {
               — {project.description}
             </span>
           )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleDownloadProject}
+            disabled={isDownloading}
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-200 hover:text-white rounded transition-colors disabled:opacity-50"
+            title="Download project code as ZIP folder"
+            aria-label="Download project"
+          >
+            {isDownloading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Download className="w-3.5 h-3.5 text-sky-400" />
+            )}
+            <span>Download Project</span>
+          </button>
         </div>
       </div>
 

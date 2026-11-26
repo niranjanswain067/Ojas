@@ -137,3 +137,37 @@ class TestProjectCRUD:
     def test_delete_nonexistent_project_returns_404(self, client: TestClient):
         del_res = client.delete("/api/projects/unknown-project-id-999")
         assert del_res.status_code == 404
+
+    def test_download_project_zip_success(self, client: TestClient):
+        import io
+        import zipfile
+
+        res = client.post("/api/projects", json={"name": "Download Test Project"})
+        assert res.status_code == 201
+        p_id = res.json()["id"]
+
+        try:
+            ws_path = get_workspace_dir(p_id)
+            # Create a sample code file and a subfolder file
+            (ws_path / "index.html").write_text("<h1>Hello Ojas</h1>", encoding="utf-8")
+            (ws_path / "tests" / "test_sample.py").write_text("def test_ok(): pass", encoding="utf-8")
+
+            # Request download
+            dl_res = client.get(f"/api/projects/{p_id}/download")
+            assert dl_res.status_code == 200
+            assert dl_res.headers.get("content-type") == "application/zip"
+            assert 'Download_Test_Project.zip' in dl_res.headers.get("content-disposition", "")
+
+            # Verify zip archive contents
+            with zipfile.ZipFile(io.BytesIO(dl_res.content), "r") as zf:
+                namelist = zf.namelist()
+                assert "index.html" in namelist
+                assert "tests/test_sample.py" in namelist
+                assert zf.read("index.html").decode("utf-8") == "<h1>Hello Ojas</h1>"
+                assert zf.read("tests/test_sample.py").decode("utf-8") == "def test_ok(): pass"
+        finally:
+            client.delete(f"/api/projects/{p_id}")
+
+    def test_download_nonexistent_project_returns_404(self, client: TestClient):
+        dl_res = client.get("/api/projects/non-existent-uuid-99999/download")
+        assert dl_res.status_code == 404

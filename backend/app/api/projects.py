@@ -3,15 +3,21 @@ API router for Project CRUD operations.
 Prefix: /api/projects
 """
 
+import io
 import logging
+import os
+import re
+import zipfile
+from pathlib import Path
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import StreamingResponse
 from backend.app.schemas.projects import (
     ProjectCreate,
     ProjectListResponse,
     ProjectResponse,
     ProjectUpdate,
 )
-from backend.app.storage import project_store
+from backend.app.storage import file_store, project_store
 
 logger = logging.getLogger(__name__)
 
@@ -115,3 +121,50 @@ async def delete_project(project_id: str):
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e),
         )
+
+
+@router.get(
+    "/{project_id}/download",
+    summary="Download project as a ZIP archive",
+    description="Package all workspace files for the project into a ZIP archive and stream it for download.",
+)
+async def download_project(project_id: str):
+    project = project_store.get_project(project_id)
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project with ID '{project_id}' not found.",
+        )
+
+    ws_dir = project_store.get_workspace_dir(project_id)
+    if not ws_dir.exists():
+        ws_dir.mkdir(parents=True, exist_ok=True)
+
+    safe_name = re.sub(r"[^\w\-_\.]", "_", project.get("name", "project")).strip("_") or "project"
+    zip_filename = f"{safe_name}.zip"
+
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for root, dirs, files in os.walk(ws_dir):
+            dirs[:] = [
+                d
+                for d in dirs
+                if d not in file_store.EXCLUDED_NAMES and not d.startswith(".")
+            ]
+            for file in sorted(files):
+                if file in file_store.EXCLUDED_NAMES or file.startswith("."):
+                    continue
+                file_path = Path(root) / file
+                rel_path = file_path.relative_to(ws_dir)
+                arcname = str(rel_path).replace("\\", "/")
+                zf.write(file_path, arcname=arcname)
+
+    zip_buffer.seek(0)
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{zip_filename}"',
+            "Cache-Control": "no-cache",
+        },
+    )

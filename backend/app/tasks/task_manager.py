@@ -53,8 +53,18 @@ class TaskManager:
         with self._lock:
             if self._current_run_id is None:
                 return False
+            if self._current_future is not None and self._current_future.done():
+                self._current_run_id = None
+                self._current_future = None
+                return False
             status = self._statuses.get(self._current_run_id)
             return status == TaskStatus.RUNNING
+
+    def clear_current(self) -> None:
+        """Force-clear the current running task pointer."""
+        with self._lock:
+            self._current_run_id = None
+            self._current_future = None
 
     def get_current_run_id(self) -> Optional[str]:
         """Return the run_id of the currently executing task, if any."""

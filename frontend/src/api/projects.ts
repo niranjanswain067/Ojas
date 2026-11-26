@@ -47,3 +47,42 @@ export async function updateProject(
 export async function deleteProject(projectId: string): Promise<void> {
   return apiDelete<void>(`/projects/${projectId}`);
 }
+
+/**
+ * Download the entire project workspace as a ZIP archive.
+ */
+export async function downloadProjectZip(
+  projectId: string,
+  projectName?: string
+): Promise<void> {
+  const response = await fetch(`/api/projects/${projectId}/download`, {
+    method: 'GET',
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Failed to download project: ${response.statusText} (${errorText})`
+    );
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+
+  let filename = `${projectName || projectId}.zip`;
+  const disposition = response.headers.get('Content-Disposition');
+  if (disposition && disposition.includes('filename=')) {
+    const match = disposition.match(/filename="?([^";]+)"?/);
+    if (match && match[1]) {
+      filename = match[1];
+    }
+  }
+
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
