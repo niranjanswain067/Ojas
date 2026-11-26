@@ -254,3 +254,46 @@ class LlamaCppClient(LLMClient):
                 logger.exception("generate_with_system() failed")
                 return ""
 
+    def stream_with_system(
+        self,
+        system: str,
+        user: str,
+        max_tokens: int = 512,
+        temperature: float = 0.2,
+        stop: list[str] | None = None,
+    ) -> Iterator[str]:
+        """
+        Use llama.cpp's native chat-completion streaming with separate system
+        and user message roles, yielding tokens as they are produced.
+        """
+        if not self.is_loaded():
+            logger.warning("stream_with_system() called but model is not loaded.")
+            return
+
+        stop = stop or []
+
+        with self._lock:
+            try:
+                response_iter = self._llm.create_chat_completion(  # type: ignore[union-attr]
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user",   "content": user},
+                    ],
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    stop=stop,
+                    stream=True,
+                )
+
+                for chunk in response_iter:
+                    delta = chunk["choices"][0].get("delta", {})
+                    token = delta.get("content", "")
+                    if token:
+                        yield token
+
+            except Exception as exc:
+                self._last_error = f"{type(exc).__name__}: {exc}"
+                logger.exception("stream_with_system() failed")
+                return
+
+

@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { ProjectCard } from './ProjectCard';
+import * as projectApi from '../../api/projects';
 import type { Project } from '../../api/types';
 
 const mockProject: Project = {
@@ -46,5 +47,30 @@ describe('ProjectCard', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /delete library system/i }));
     expect(onDelete).toHaveBeenCalledWith(mockProject);
+  });
+
+  it('triggers download when download button is clicked', async () => {
+    const downloadSpy = vi
+      .spyOn(projectApi, 'downloadProjectZip')
+      .mockResolvedValueOnce(undefined);
+
+    render(
+      <MemoryRouter>
+        <ProjectCard project={mockProject} onDelete={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    const downloadBtn = screen.getByRole('button', {
+      name: /download library system/i,
+    });
+    expect(downloadBtn).toBeInTheDocument();
+
+    fireEvent.click(downloadBtn);
+
+    await waitFor(() => {
+      expect(downloadSpy).toHaveBeenCalledWith('proj-123', 'Library System');
+    });
+
+    downloadSpy.mockRestore();
   });
 });

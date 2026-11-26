@@ -236,13 +236,27 @@ def get_test_cases(project_id: str) -> List[Dict[str, Any]]:
     return results
 
 
-def update_test_case_status(test_case_id: str, status: str) -> None:
-    """Update status column for a test case."""
+def update_test_case_status(*args, **kwargs) -> None:
+    """Update status column for a test case. Supports (test_case_id, status) or (project_id, tc_id, status)."""
     now = _now_iso()
-    execute_query(
-        "UPDATE test_cases SET status = ?, updated_at = ? WHERE id = ?",
-        (status, now, test_case_id),
-    )
+    if len(args) == 3:
+        project_id, tc_id, status = args
+        execute_query(
+            "UPDATE test_cases SET status = ?, updated_at = ? WHERE project_id = ? AND tc_id = ?",
+            (status, now, project_id, tc_id),
+        )
+    elif len(args) == 2:
+        test_case_id, status = args
+        execute_query(
+            "UPDATE test_cases SET status = ?, updated_at = ? WHERE id = ? OR tc_id = ?",
+            (status, now, test_case_id, test_case_id),
+        )
+    elif "test_case_id" in kwargs and "status" in kwargs:
+        execute_query(
+            "UPDATE test_cases SET status = ?, updated_at = ? WHERE id = ? OR tc_id = ?",
+            (kwargs["status"], now, kwargs["test_case_id"], kwargs["test_case_id"]),
+        )
+
 
 
 # ---------------------------------------------------------------------------

@@ -3,6 +3,7 @@ API router for development plans: retrieving current plan, editing, and approvin
 """
 
 import logging
+import time
 import uuid
 from typing import Optional
 
@@ -22,6 +23,7 @@ from backend.app.schemas.runs import (
 from backend.app.storage.document_store import ensure_project
 from backend.app.storage.run_store import (
     get_latest_plan,
+    get_run,
     save_run,
     update_plan_approval,
 )
@@ -82,6 +84,27 @@ def approve_project_plan(project_id: str, req: PlanApproveRequest) -> PlanApprov
             status="approved",
             message="Plan saved and approved successfully.",
         )
+
+    # Brief grace period: if the plan-generation task just finished, the
+    # background thread may still be unwinding. Wait up to 3 s for it to
+    # release the TaskManager lock before checking busy status.
+    if task_mgr.is_busy():
+        for _ in range(6):  # 6 × 0.5 s = 3 s max
+            time.sleep(0.5)
+            if not task_mgr.is_busy():
+                break
+
+    if task_mgr.is_busy():
+        current_id = task_mgr.get_current_run_id()
+        if current_id:
+            curr_run = get_run(current_id)
+            if curr_run and curr_run.get("status") in ("pending_approval", "completed", "cancelled", "failed"):
+                logger.info(
+                    "Task %s is in status '%s'; clearing TaskManager busy lock to allow development run.",
+                    current_id,
+                    curr_run.get("status"),
+                )
+                task_mgr.clear_current()
 
     if task_mgr.is_busy():
         current_id = task_mgr.get_current_run_id()

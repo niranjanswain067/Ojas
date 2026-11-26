@@ -52,6 +52,8 @@ export const RunPanel: React.FC<RunPanelProps> = ({ projectId = 'default-project
     addBugReport,
     setIteration,
     setFixLoopStopReason,
+    appendModelOutput,
+    clearModelOutput,
     completeRun,
   } = useRunStore();
 
@@ -113,6 +115,10 @@ export const RunPanel: React.FC<RunPanelProps> = ({ projectId = 'default-project
             setPlan(data.plan_text);
             addLog('Development plan generated and ready for review.', 'info');
           }
+        } else if (event_type === 'token') {
+          if (data?.token) {
+            appendModelOutput(data.token);
+          }
         } else if (event_type === 'error') {
           addLog(data?.message || 'Execution error encountered', 'error');
         } else if (event_type === 'done') {
@@ -139,6 +145,7 @@ export const RunPanel: React.FC<RunPanelProps> = ({ projectId = 'default-project
     if (!prompt.trim() || isRunActive || isSubmitting) return;
 
     setIsSubmitting(true);
+    clearModelOutput();
     try {
       const res = await startRun(projectId, 'plan', prompt);
       storeStartRun(res.run_id, 'plan', prompt);

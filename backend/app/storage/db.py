@@ -57,6 +57,10 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
+# Aliases for convenience
+get_db = get_connection
+
+
 # ---------------------------------------------------------------------------
 # DDL — all CREATE TABLE / INDEX / TRIGGER / INSERT statements
 # ---------------------------------------------------------------------------
@@ -375,6 +379,10 @@ def init_database() -> None:
         raise
     finally:
         conn.close()
+
+
+init_db = init_database
+
 
 
 def execute_query(

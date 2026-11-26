@@ -200,6 +200,14 @@ class Orchestrator:
                 {"run_id": r_id, "plan_text": plan_text, "status": "pending_approval"},
             )
 
+            # Signal completion so the frontend SSE handler closes the stream
+            # and transitions the UI out of the "running" state.
+            self._publish(
+                r_id,
+                "done",
+                {"status": "completed", "stop_reason": "plan_ready"},
+            )
+
             return RunResult(
                 run_id=r_id,
                 success=True,
@@ -265,12 +273,11 @@ class Orchestrator:
                     active_plan_text = latest["plan_text"]
 
             if not active_plan_text:
-                # If no plan exists, run planning first
+                # No plan exists — generate one and return for user approval.
+                # The user must approve the plan via the /approve endpoint,
+                # which starts a new develop run with the approved plan text.
                 logger.info("No plan found for develop run %s. Generating plan first.", r_id)
-                plan_res = self.run_plan(project_id, prompt or "Build system", run_id=r_id)
-                if not plan_res.success:
-                    return plan_res
-                active_plan_text = plan_res.plan_text
+                return self.run_plan(project_id, prompt or "Build system", run_id=r_id)
 
             # Parse plan
             plan_obj = self._parse_plan_object(active_plan_text, prompt)
@@ -357,6 +364,12 @@ class Orchestrator:
                 "done",
                 {"status": "completed", "stop_reason": "completed", "files_generated": files_generated},
             )
+
+            try:
+                from backend.app.storage.report_writer import ReportWriter
+                ReportWriter(project_id).generate_consolidated_report()
+            except Exception as rw_exc:
+                logger.debug("Failed auto-generating report: %s", rw_exc)
 
             return RunResult(
                 run_id=r_id,
@@ -595,6 +608,11 @@ class Orchestrator:
                     "message": "All tests passed successfully!",
                     "iteration": iteration,
                 })
+                try:
+                    from backend.app.storage.report_writer import ReportWriter
+                    ReportWriter(project_id).generate_consolidated_report()
+                except Exception:
+                    pass
                 return RunResult(
                     run_id=r_id,
                     success=True,

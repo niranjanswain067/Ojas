@@ -115,3 +115,20 @@ class LLMClient(ABC):
         return self.generate(prompt, max_tokens=max_tokens,
                              temperature=temperature, stop=stop)
 
+    def stream_with_system(
+        self,
+        system: str,
+        user: str,
+        max_tokens: int = 512,
+        temperature: float = 0.2,
+        stop: list[str] | None = None,
+    ) -> Iterator[str]:
+        """
+        Stream completion for a system + user message pair, yielding one token
+        string at a time.
+        """
+        prompt = f"<|system|>\n{system}\n<|user|>\n{user}\n<|assistant|>\n"
+        yield from self.stream(prompt, max_tokens=max_tokens,
+                               temperature=temperature, stop=stop)
+
+
